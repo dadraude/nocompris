@@ -3,10 +3,11 @@
         :name="auth()->user()->name"
         :initials="auth()->user()->initials()"
         icon:trailing="chevrons-up-down"
+        class="rounded-2xl border border-black/5 bg-white/75 px-1.5 py-1 shadow-sm backdrop-blur-sm dark:border-white/10 dark:bg-zinc-950/50"
         data-test="sidebar-menu-button"
     />
 
-    <flux:menu>
+    <flux:menu class="min-w-72 rounded-3xl border border-black/5 bg-white/95 p-2 shadow-xl shadow-zinc-950/10 dark:border-white/10 dark:bg-zinc-900/95">
         <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
             <flux:avatar
                 :name="auth()->user()->name"
@@ -25,7 +26,7 @@
                 </flux:menu.item>
             @endif
             <flux:menu.item :href="route('profile.edit')" icon="cog" wire:navigate>
-                {{ __('Settings') }}
+                {{ __('Configuració') }}
             </flux:menu.item>
             <form method="POST" action="{{ route('logout') }}" class="w-full">
                 @csrf
@@ -36,7 +37,7 @@
                     class="w-full cursor-pointer"
                     data-test="logout-button"
                 >
-                    {{ __('Log out') }}
+                    {{ __('Tanca la sessió') }}
                 </flux:menu.item>
             </form>
         </flux:menu.radio.group>
