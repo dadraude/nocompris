@@ -16,9 +16,13 @@ return new class extends Migration
             $table->string('name');
             $table->string('email')->unique();
             $table->timestamp('email_verified_at')->nullable();
+            $table->foreignId('user_group_id')->nullable()->constrained('user_groups')->nullOnDelete();
             $table->string('password');
+            $table->boolean('is_master')->default(false);
             $table->rememberToken();
             $table->timestamps();
+
+            $table->index(['user_group_id', 'is_master']);
         });
 
         Schema::create('password_reset_tokens', function (Blueprint $table) {

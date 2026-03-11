@@ -1,0 +1,87 @@
+<?php
+
+namespace App\Models;
+
+use App\ShoppingListItemVisibility;
+use Database\Factories\ShoppingListItemFactory;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class ShoppingListItem extends Model
+{
+    /** @use HasFactory<ShoppingListItemFactory> */
+    use HasFactory;
+
+    /**
+     * The attributes that are mass assignable.
+     *
+     * @var list<string>
+     */
+    protected $fillable = [
+        'shop_id',
+        'user_id',
+        'name',
+        'quantity',
+        'visibility',
+        'purchased',
+        'position',
+    ];
+
+    /**
+     * Get the attributes that should be cast.
+     *
+     * @return array<string, string>
+     */
+    protected function casts(): array
+    {
+        return [
+            'purchased' => 'boolean',
+            'visibility' => ShoppingListItemVisibility::class,
+        ];
+    }
+
+    /**
+     * Get the shop that owns the item.
+     */
+    public function shop(): BelongsTo
+    {
+        return $this->belongsTo(Shop::class);
+    }
+
+    /**
+     * Get the creator of the item.
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
+    /**
+     * Scope the query to items visible to the given user.
+     */
+    public function scopeVisibleTo(Builder $query, User $user): Builder
+    {
+        return $query
+            ->whereHas('shop', fn (Builder $query): Builder => $query->visibleTo($user))
+            ->where(function (Builder $query) use ($user): void {
+                $query
+                    ->where('user_id', $user->id)
+                    ->orWhere('visibility', ShoppingListItemVisibility::Public->value);
+            });
+    }
+
+    /**
+     * Determine whether the item is visible to the given user.
+     */
+    public function isVisibleTo(User $user): bool
+    {
+        if ($this->user_id === $user->id) {
+            return true;
+        }
+
+        return $this->visibility === ShoppingListItemVisibility::Public
+            && $this->shop->isVisibleTo($user);
+    }
+}

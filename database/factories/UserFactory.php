@@ -3,6 +3,7 @@
 namespace Database\Factories;
 
 use App\Models\User;
+use App\Models\UserGroup;
 use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -28,7 +29,9 @@ class UserFactory extends Factory
             'name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
             'email_verified_at' => now(),
+            'user_group_id' => null,
             'password' => static::$password ??= Hash::make('password'),
+            'is_master' => false,
             'remember_token' => Str::random(10),
             'two_factor_secret' => null,
             'two_factor_recovery_codes' => null,
@@ -55,6 +58,26 @@ class UserFactory extends Factory
             'two_factor_secret' => encrypt('secret'),
             'two_factor_recovery_codes' => encrypt(json_encode(['recovery-code-1'])),
             'two_factor_confirmed_at' => now(),
+        ]);
+    }
+
+    /**
+     * Indicate that the user is a master user.
+     */
+    public function master(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_master' => true,
+        ]);
+    }
+
+    /**
+     * Assign the user to a group.
+     */
+    public function inGroup(?UserGroup $userGroup = null): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'user_group_id' => $userGroup?->getKey() ?? UserGroup::factory(),
         ]);
     }
 }

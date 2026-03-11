@@ -13,8 +13,13 @@
             <flux:sidebar.nav>
                 <flux:sidebar.group :heading="__('Platform')" class="grid">
                     <flux:sidebar.item icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
-                        {{ __('Dashboard') }}
+                        {{ __('Llista de la compra') }}
                     </flux:sidebar.item>
+                    @if (auth()->user()->is_master)
+                        <flux:sidebar.item icon="users" :href="route('master.index')" :current="request()->routeIs('master.index')" wire:navigate>
+                            {{ __('Usuaris i grups') }}
+                        </flux:sidebar.item>
+                    @endif
                 </flux:sidebar.group>
             </flux:sidebar.nav>
 
