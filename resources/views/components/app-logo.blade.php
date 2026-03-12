@@ -6,9 +6,7 @@
     'group inline-flex items-center gap-3 text-left',
     'w-full' => $sidebar,
 ]) }}>
-    <span class="flex size-10 items-center justify-center rounded-2xl bg-zinc-900 text-white transition-colors duration-200 group-hover:bg-[#34584f] dark:bg-white dark:text-zinc-950 dark:group-hover:bg-[#c1dccd]">
-        <x-app-logo-icon class="size-6 fill-current" />
-    </span>
+    <x-app-logo-icon class="size-10 shrink-0 rounded-2xl" />
 
     <span class="grid flex-1 leading-tight">
         <span class="font-display text-[1.3rem] font-semibold tracking-[-0.03em] text-zinc-950 dark:text-white">NoCompris</span>

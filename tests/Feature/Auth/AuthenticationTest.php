@@ -16,10 +16,10 @@ test('login page shows login form and expected content', function () {
 
     $response
         ->assertOk()
-        ->assertSee('Email sign in')
-        ->assertSee('Email address')
-        ->assertSee('Continue with email')
-        ->assertSee('Keep me signed in on this device')
+        ->assertSee('Entrada amb correu')
+        ->assertSee('Adreça de correu')
+        ->assertSee('Continua amb el correu')
+        ->assertSee('Mantén la sessió iniciada en aquest dispositiu')
         ->assertDontSee('Password')
         ->assertDontSee('Forgot your password?')
         ->assertDontSee('Don\'t have an account?')
