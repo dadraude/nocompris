@@ -17,3 +17,11 @@ test('authenticated users can visit the dashboard', function () {
         ->assertSee('NoCompris')
         ->assertSee('Organitza la compra');
 });
+
+test('master users are redirected from the dashboard to the master panel', function () {
+    $master = User::factory()->master()->create();
+
+    $response = $this->actingAs($master)->get(route('dashboard'));
+
+    $response->assertRedirect(route('master.index'));
+});

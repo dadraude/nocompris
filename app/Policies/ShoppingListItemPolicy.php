@@ -14,7 +14,7 @@ class ShoppingListItemPolicy
      */
     public function viewAny(User $user): bool
     {
-        return true;
+        return ! $user->is_master;
     }
 
     /**
@@ -30,7 +30,7 @@ class ShoppingListItemPolicy
      */
     public function create(User $user, Shop $shop): bool
     {
-        return $shop->isVisibleTo($user);
+        return ! $user->is_master && $shop->isVisibleTo($user);
     }
 
     /**

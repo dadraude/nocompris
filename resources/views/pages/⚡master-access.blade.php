@@ -30,6 +30,17 @@ new #[Title('Usuaris i grups')] class extends Component
 
     public bool $userIsMaster = false;
 
+    /** @var array<int, string> */
+    public array $userGroupAssignments = [];
+
+    /**
+     * Initialize the component state.
+     */
+    public function mount(): void
+    {
+        $this->syncUserGroupAssignments();
+    }
+
     /**
      * Get the existing groups.
      */
@@ -117,8 +128,50 @@ new #[Title('Usuaris i grups')] class extends Component
             'is_master' => $validated['is_master'],
         ]);
 
+        $this->syncUserGroupAssignments();
         $this->resetUserForm();
         $this->dispatch('user-created');
+    }
+
+    /**
+     * Persist a group change triggered from the user list.
+     */
+    public function updatedUserGroupAssignments(mixed $groupId, string $userId): void
+    {
+        $this->updateUserGroup((int) $userId, $groupId);
+    }
+
+    /**
+     * Update the group assigned to an existing user.
+     */
+    public function updateUserGroup(int $userId, mixed $groupId): void
+    {
+        $validated = Validator::make(
+            [
+                'user_id' => $userId,
+                'user_group_id' => $groupId !== '' ? $groupId : null,
+            ],
+            [
+                'user_id' => ['required', 'integer', Rule::exists(User::class, 'id')],
+                'user_group_id' => ['nullable', 'integer', Rule::exists(UserGroup::class, 'id')],
+            ],
+            [],
+            [
+                'user_group_id' => 'grup',
+            ],
+        )->validate();
+
+        $user = User::query()->findOrFail($validated['user_id']);
+
+        $user->update([
+            'user_group_id' => $validated['user_group_id'],
+        ]);
+
+        $this->userGroupAssignments[$user->id] = $validated['user_group_id'] === null
+            ? ''
+            : (string) $validated['user_group_id'];
+
+        $this->dispatch('user-group-updated');
     }
 
     /**
@@ -134,54 +187,70 @@ new #[Title('Usuaris i grups')] class extends Component
         $this->userGroupId = '';
         $this->userIsMaster = false;
     }
+
+    /**
+     * Sync the select state shown in the user list.
+     */
+    protected function syncUserGroupAssignments(): void
+    {
+        $this->userGroupAssignments = User::query()
+            ->orderByDesc('is_master')
+            ->orderBy('name')
+            ->get()
+            ->mapWithKeys(fn (User $user): array => [
+                $user->id => $user->user_group_id === null ? '' : (string) $user->user_group_id,
+            ])
+            ->all();
+    }
 };
 ?>
 
 <section class="w-full">
-    <div class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-        <div class="overflow-hidden rounded-[2rem] border border-zinc-200/80 bg-linear-to-br from-stone-50 via-white to-amber-50 shadow-sm dark:border-zinc-700/70 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800">
-            <div class="flex flex-col gap-5 px-6 py-8 sm:px-8">
-                <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                    <div class="max-w-2xl space-y-2">
-                        <p class="text-sm font-medium uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-400">Control d'accés</p>
+    <div class="mx-auto flex w-full max-w-[90rem] flex-col gap-3 px-2.5 py-3 sm:gap-4 sm:px-4 sm:py-4 lg:px-5 xl:px-6">
+        <div class="overflow-hidden rounded-xl border border-zinc-200/80 bg-linear-to-br from-stone-50 via-white to-amber-50 shadow-sm dark:border-zinc-700/70 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 sm:rounded-2xl">
+            <div class="flex flex-col gap-3 px-3 py-4 sm:px-4 sm:py-4 lg:gap-4">
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                    <div class="max-w-2xl space-y-1">
+                        <p class="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">Control d'accés</p>
                         <flux:heading size="xl" level="1">{{ __('Usuaris i grups') }}</flux:heading>
-                        <flux:subheading class="max-w-xl">
+                        <flux:subheading class="max-w-2xl text-sm">
                             {{ __('Crea grups, dona d’alta usuaris i defineix qui actua com a master dins de l’aplicació.') }}
                         </flux:subheading>
                     </div>
 
-                    <div class="flex items-center gap-3">
+                    <div class="hidden items-center gap-2 xl:flex">
                         <x-action-message on="group-created">{{ __('Grup creat.') }}</x-action-message>
                         <x-action-message on="user-created">{{ __('Usuari creat.') }}</x-action-message>
+                        <x-action-message on="user-group-updated">{{ __('Grup actualitzat.') }}</x-action-message>
                     </div>
                 </div>
 
-                <div class="grid gap-3 rounded-2xl border border-zinc-200/70 bg-white/80 p-4 backdrop-blur-sm dark:border-zinc-700/70 dark:bg-zinc-950/40 sm:grid-cols-3">
-                    <div class="rounded-2xl bg-zinc-50 px-4 py-3 dark:bg-zinc-900/80">
-                        <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Grups') }}</p>
-                        <p class="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">{{ $this->groups->count() }}</p>
+                <div class="grid gap-1.5 rounded-[1.25rem] border border-zinc-200/70 bg-white/80 p-2.5 backdrop-blur-sm dark:border-zinc-700/70 dark:bg-zinc-950/40 sm:grid-cols-3">
+                    <div class="rounded-xl bg-zinc-50 px-2.5 py-2 dark:bg-zinc-900/80">
+                        <p class="text-[0.7rem] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">{{ __('Grups') }}</p>
+                        <p class="text-xl font-semibold text-zinc-900 dark:text-zinc-50">{{ $this->groups->count() }}</p>
                     </div>
-                    <div class="rounded-2xl bg-zinc-50 px-4 py-3 dark:bg-zinc-900/80">
-                        <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Usuaris') }}</p>
-                        <p class="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">{{ $this->users->count() }}</p>
+                    <div class="rounded-xl bg-zinc-50 px-2.5 py-2 dark:bg-zinc-900/80">
+                        <p class="text-[0.7rem] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">{{ __('Usuaris') }}</p>
+                        <p class="text-xl font-semibold text-zinc-900 dark:text-zinc-50">{{ $this->users->count() }}</p>
                     </div>
-                    <div class="rounded-2xl bg-zinc-50 px-4 py-3 dark:bg-zinc-900/80">
-                        <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Masters') }}</p>
-                        <p class="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">{{ $this->users->where('is_master', true)->count() }}</p>
+                    <div class="rounded-xl bg-zinc-50 px-2.5 py-2 dark:bg-zinc-900/80">
+                        <p class="text-[0.7rem] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">{{ __('Masters') }}</p>
+                        <p class="text-xl font-semibold text-zinc-900 dark:text-zinc-50">{{ $this->users->where('is_master', true)->count() }}</p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="grid gap-6 xl:grid-cols-[0.95fr_1.05fr]">
-            <div class="space-y-6">
-                <article class="rounded-[1.75rem] border border-zinc-200/80 bg-white/90 p-5 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-900/70">
+        <div class="grid gap-3 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
+            <div class="space-y-3">
+                <article class="rounded-xl border border-zinc-200/80 bg-white/90 p-3 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-900/70 sm:rounded-2xl sm:p-4">
                     <flux:heading size="lg">{{ __('Nou grup') }}</flux:heading>
                     <flux:text class="mt-2 text-zinc-500 dark:text-zinc-400">
                         {{ __('Cada botiga es comparteix a nivell de grup, així que aquest és el primer pas per organitzar l’accés.') }}
                     </flux:text>
 
-                    <form wire:submit="createGroup" class="mt-5 space-y-4">
+                    <form wire:submit="createGroup" class="mt-3 space-y-2.5">
                         <flux:field>
                             <flux:label>{{ __('Nom del grup') }}</flux:label>
                             <flux:input wire:model="groupName" :placeholder="__('Ex. Família Serra')" />
@@ -194,7 +263,7 @@ new #[Title('Usuaris i grups')] class extends Component
                     </form>
                 </article>
 
-                <article class="rounded-[1.75rem] border border-zinc-200/80 bg-white/90 p-5 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-900/70">
+                <article class="rounded-xl border border-zinc-200/80 bg-white/90 p-3 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-900/70 sm:rounded-2xl sm:p-4">
                     <div class="flex items-center justify-between gap-3">
                         <div>
                             <flux:heading size="lg">{{ __('Grups existents') }}</flux:heading>
@@ -204,9 +273,9 @@ new #[Title('Usuaris i grups')] class extends Component
                         </div>
                     </div>
 
-                    <div class="mt-5 space-y-3">
+                    <div class="mt-3 space-y-2">
                         @forelse ($this->groups as $group)
-                            <div class="rounded-2xl border border-zinc-200/70 bg-zinc-50/80 px-4 py-3 dark:border-zinc-700/70 dark:bg-zinc-950/40">
+                            <div class="rounded-xl border border-zinc-200/70 bg-zinc-50/80 px-2.5 py-2 dark:border-zinc-700/70 dark:bg-zinc-950/40">
                                 <div class="flex items-center justify-between gap-4">
                                     <div>
                                         <p class="font-medium text-zinc-900 dark:text-zinc-50">{{ $group->name }}</p>
@@ -219,7 +288,7 @@ new #[Title('Usuaris i grups')] class extends Component
                                 </div>
                             </div>
                         @empty
-                            <div class="rounded-2xl border border-dashed border-zinc-200 px-4 py-8 text-center dark:border-zinc-700">
+                            <div class="rounded-2xl border border-dashed border-zinc-200 px-4 py-6 text-center dark:border-zinc-700">
                                 <flux:text class="text-zinc-500 dark:text-zinc-400">
                                     {{ __('Encara no hi ha cap grup creat.') }}
                                 </flux:text>
@@ -229,14 +298,14 @@ new #[Title('Usuaris i grups')] class extends Component
                 </article>
             </div>
 
-            <div class="space-y-6">
-                <article class="rounded-[1.75rem] border border-zinc-200/80 bg-white/90 p-5 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-900/70">
+            <div class="space-y-3">
+                <article class="rounded-xl border border-zinc-200/80 bg-white/90 p-3 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-900/70 sm:rounded-2xl sm:p-4">
                     <flux:heading size="lg">{{ __('Nou usuari') }}</flux:heading>
                     <flux:text class="mt-2 text-zinc-500 dark:text-zinc-400">
                         {{ __('Els usuaris normals han d’estar dins d’un grup. Un master pot entrar al panell i gestionar nous accessos.') }}
                     </flux:text>
 
-                    <form wire:submit="createUser" class="mt-5 grid gap-4 md:grid-cols-2">
+                    <form wire:submit="createUser" class="mt-3 grid gap-2.5 md:grid-cols-2">
                         <flux:field>
                             <flux:label>{{ __('Nom') }}</flux:label>
                             <flux:input wire:model="userName" />
@@ -291,31 +360,41 @@ new #[Title('Usuaris i grups')] class extends Component
                     </form>
                 </article>
 
-                <article class="rounded-[1.75rem] border border-zinc-200/80 bg-white/90 p-5 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-900/70">
+                <article class="rounded-xl border border-zinc-200/80 bg-white/90 p-3 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-900/70 sm:rounded-2xl sm:p-4">
                     <flux:heading size="lg">{{ __('Usuaris existents') }}</flux:heading>
                     <flux:text class="mt-2 text-zinc-500 dark:text-zinc-400">
-                        {{ __('Vista ràpida de rols i grups assignats per comprovar l’accés compartit de les botigues.') }}
+                        {{ __('Assigna un grup, canvia’l o deixa l’usuari sense grup directament des d’aquesta llista.') }}
                     </flux:text>
 
-                    <div class="mt-5 space-y-3">
+                    <div class="mt-3 space-y-2">
                         @foreach ($this->users as $user)
-                            <div class="rounded-2xl border border-zinc-200/70 bg-zinc-50/80 px-4 py-3 dark:border-zinc-700/70 dark:bg-zinc-950/40">
-                                <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                            <div wire:key="user-{{ $user->id }}" class="rounded-xl border border-zinc-200/70 bg-zinc-50/80 px-2.5 py-2 dark:border-zinc-700/70 dark:bg-zinc-950/40">
+                                <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                                     <div>
                                         <p class="font-medium text-zinc-900 dark:text-zinc-50">{{ $user->name }}</p>
                                         <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ $user->email }}</p>
                                     </div>
 
-                                    <div class="flex flex-wrap items-center gap-2 text-sm">
-                                        <span class="rounded-full bg-zinc-100 px-2 py-0.5 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                                            {{ $user->userGroup?->name ?? __('Sense grup') }}
-                                        </span>
-
+                                    <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
                                         @if ($user->is_master)
-                                            <span class="rounded-full bg-amber-100 px-2 py-0.5 text-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
+                                            <span class="rounded-full bg-amber-100 px-2 py-0.5 text-sm text-amber-800 dark:bg-amber-950/50 dark:text-amber-200">
                                                 {{ __('Master') }}
                                             </span>
                                         @endif
+
+                                        <div class="min-w-full sm:min-w-44">
+                                            <flux:field>
+                                                <flux:label class="sr-only">{{ __('Grup de l’usuari') }}</flux:label>
+                                                <flux:select
+                                                    wire:model="userGroupAssignments.{{ $user->id }}"
+                                                >
+                                                    <option value="">{{ __('Sense grup') }}</option>
+                                                    @foreach ($this->groups as $group)
+                                                        <option value="{{ $group->id }}">{{ $group->name }}</option>
+                                                    @endforeach
+                                                </flux:select>
+                                            </flux:field>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

@@ -74,6 +74,27 @@ test('authenticated user sees group shops and public items only', function () {
         ->assertDontSee('Producte ocult');
 });
 
+test('shopping list renders compact layout hooks', function () {
+    $user = User::factory()->create();
+    $shop = Shop::factory()->for($user)->create([
+        'name' => 'Mercat central',
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($user)->create([
+        'name' => 'Pasta',
+        'position' => 1,
+    ]);
+
+    $this->actingAs($user);
+
+    $this->get(route('dashboard'))
+        ->assertSuccessful()
+        ->assertSee('max-w-[90rem]', false)
+        ->assertSee("window.matchMedia('(min-width: 768px)').matches", false)
+        ->assertSee('rounded-xl', false);
+});
+
 test('user can create a shop shared with their group using the next position', function () {
     $group = UserGroup::factory()->create();
     $user = User::factory()->inGroup($group)->create();
@@ -99,6 +120,16 @@ test('user can create a shop shared with their group using the next position', f
     expect($shop)->not->toBeNull();
     expect($shop?->position)->toBe(2);
     expect($shop?->user_group_id)->toBe($group->id);
+});
+
+test('master users can not create shops from the shopping list component', function () {
+    $master = User::factory()->master()->create();
+
+    $this->actingAs($master);
+
+    Livewire::test('pages::shopping-list')
+        ->call('startCreatingShop')
+        ->assertForbidden();
 });
 
 test('user can rename a shop', function () {

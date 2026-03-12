@@ -257,82 +257,84 @@ new #[Title('Llista de la compra')] class extends Component
 ?>
 
 <section class="w-full">
-    <div class="mx-auto flex w-full max-w-6xl flex-col gap-6 px-4 py-6 sm:px-6 lg:px-8">
-        <div class="overflow-hidden rounded-[2rem] border border-zinc-200/80 bg-linear-to-br from-white via-zinc-50 to-stone-100 shadow-sm dark:border-zinc-700/70 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800">
-            <div class="flex flex-col gap-5 px-6 py-8 sm:px-8">
-                <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-                    <div class="max-w-2xl space-y-2">
-                        <p class="text-sm font-medium uppercase tracking-[0.24em] text-zinc-500 dark:text-zinc-400">Organitza la compra</p>
+    <div class="mx-auto flex w-full max-w-[90rem] flex-col gap-3 px-2.5 py-3 sm:gap-4 sm:px-4 sm:py-4 lg:px-5 xl:px-6">
+        <div class="overflow-hidden rounded-xl border border-zinc-200/80 bg-linear-to-br from-white via-zinc-50 to-stone-100 shadow-sm dark:border-zinc-700/70 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 sm:rounded-2xl">
+            <div class="flex flex-col gap-2 px-3 py-3 sm:gap-3 sm:px-4 sm:py-4 lg:gap-4">
+                <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+                    <div class="hidden max-w-2xl space-y-1 sm:block">
+                        <p class="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">Organitza la compra</p>
                         <flux:heading size="xl" level="1">{{ __('Llista de la compra') }}</flux:heading>
-                        <flux:subheading class="max-w-xl">
+                        <flux:subheading class="max-w-2xl text-sm">
                             {{ __('Comparteix botigues amb el teu grup i decideix si cada producte és públic o privat.') }}
                         </flux:subheading>
                     </div>
 
-                    <div class="flex items-center gap-3">
-                        <x-action-message on="shop-saved">{{ __('Botiga desada.') }}</x-action-message>
-                        <x-action-message on="shop-deleted">{{ __('Botiga eliminada.') }}</x-action-message>
-                        <x-action-message on="item-added">{{ __('Producte afegit.') }}</x-action-message>
-                        <x-action-message on="item-updated">{{ __('Quantitat actualitzada.') }}</x-action-message>
+                    <div class="flex flex-wrap items-center gap-2 sm:justify-end lg:justify-end">
+                        <div class="hidden items-center gap-2 xl:flex">
+                            <x-action-message on="shop-saved">{{ __('Botiga desada.') }}</x-action-message>
+                            <x-action-message on="shop-deleted">{{ __('Botiga eliminada.') }}</x-action-message>
+                            <x-action-message on="item-added">{{ __('Producte afegit.') }}</x-action-message>
+                            <x-action-message on="item-updated">{{ __('Quantitat actualitzada.') }}</x-action-message>
+                        </div>
 
-                        <flux:modal.trigger name="shop-form">
-                            <flux:button variant="primary" wire:click="startCreatingShop">
+                        <flux:modal.trigger name="shop-form" class="w-full sm:w-auto">
+                            <flux:button variant="primary" size="sm" wire:click="startCreatingShop" class="w-full sm:w-auto">
                                 {{ __('Nova botiga') }}
                             </flux:button>
                         </flux:modal.trigger>
                     </div>
                 </div>
 
-                <div class="grid gap-3 rounded-2xl border border-zinc-200/70 bg-white/80 p-4 backdrop-blur-sm dark:border-zinc-700/70 dark:bg-zinc-950/40 sm:grid-cols-3">
-                    <div class="rounded-2xl bg-zinc-50 px-4 py-3 dark:bg-zinc-900/80">
-                        <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Botigues') }}</p>
-                        <p class="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">{{ $this->shops->count() }}</p>
+                <div class="grid grid-cols-3 gap-1.5 rounded-[1.25rem] border border-zinc-200/70 bg-white/80 p-2.5 backdrop-blur-sm dark:border-zinc-700/70 dark:bg-zinc-950/40">
+                    <div class="rounded-xl bg-zinc-50 px-2.5 py-2 dark:bg-zinc-900/80">
+                        <p class="text-[0.7rem] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">{{ __('Botigues') }}</p>
+                        <p class="text-xl font-semibold text-zinc-900 dark:text-zinc-50">{{ $this->shops->count() }}</p>
                     </div>
-                    <div class="rounded-2xl bg-zinc-50 px-4 py-3 dark:bg-zinc-900/80">
-                        <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Productes pendents') }}</p>
-                        <p class="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">{{ $this->shops->sum(fn ($shop) => $shop->shoppingListItems->where('purchased', false)->count()) }}</p>
+                    <div class="rounded-xl bg-zinc-50 px-2.5 py-2 dark:bg-zinc-900/80">
+                        <p class="text-[0.7rem] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">{{ __('Pendents') }}</p>
+                        <p class="text-xl font-semibold text-zinc-900 dark:text-zinc-50">{{ $this->shops->sum(fn ($shop) => $shop->shoppingListItems->where('purchased', false)->count()) }}</p>
                     </div>
-                    <div class="rounded-2xl bg-zinc-50 px-4 py-3 dark:bg-zinc-900/80">
-                        <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('Ja comprats') }}</p>
-                        <p class="text-2xl font-semibold text-zinc-900 dark:text-zinc-50">{{ $this->shops->sum(fn ($shop) => $shop->shoppingListItems->where('purchased', true)->count()) }}</p>
+                    <div class="rounded-xl bg-zinc-50 px-2.5 py-2 dark:bg-zinc-900/80">
+                        <p class="text-[0.7rem] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">{{ __('Comprats') }}</p>
+                        <p class="text-xl font-semibold text-zinc-900 dark:text-zinc-50">{{ $this->shops->sum(fn ($shop) => $shop->shoppingListItems->where('purchased', true)->count()) }}</p>
                     </div>
                 </div>
             </div>
         </div>
 
         @if ($this->shops->isEmpty())
-            <div class="rounded-[2rem] border border-dashed border-zinc-300 bg-white/80 px-8 py-14 text-center shadow-sm dark:border-zinc-700 dark:bg-zinc-900/60">
+            <div class="rounded-xl border border-dashed border-zinc-300 bg-white/80 px-4 py-6 text-center shadow-sm dark:border-zinc-700 dark:bg-zinc-900/60 sm:rounded-2xl">
                 <flux:heading size="lg">{{ __('Encara no tens cap botiga') }}</flux:heading>
                 <flux:text class="mt-3 text-zinc-500 dark:text-zinc-400">
                     {{ __('Crea la primera botiga per començar a preparar la teva compra setmanal.') }}
                 </flux:text>
             </div>
         @else
-            <div class="grid gap-5">
+            <div class="grid gap-3">
                 @foreach ($this->shops as $shop)
                     <article
                         wire:key="shop-{{ $shop->id }}"
-                        x-data="{ expanded: true, addingItem: false }"
+                        x-data="{ expanded: window.matchMedia('(min-width: 768px)').matches, addingItem: false }"
                         x-on:item-added.window="if ($event.detail.shopId === {{ $shop->id }}) addingItem = false"
-                        class="overflow-hidden rounded-[1.75rem] border border-zinc-200/80 bg-white/90 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-900/70"
+                        class="overflow-hidden rounded-xl border border-zinc-200/80 bg-white/90 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-900/70 sm:rounded-2xl"
                     >
-                        <div class="flex flex-col gap-4 border-b border-zinc-200/70 px-5 py-5 dark:border-zinc-700/70 sm:flex-row sm:items-center sm:justify-between">
+                        <div class="flex flex-col gap-2 border-b border-zinc-200/70 px-3 py-3 dark:border-zinc-700/70 sm:flex-row sm:items-center sm:justify-between sm:px-4">
                             <button
                                 type="button"
-                                class="flex flex-1 items-center gap-4 text-left"
+                                class="flex min-w-0 flex-1 items-center gap-2 text-left"
                                 x-on:click="expanded = ! expanded"
                             >
-                                <span class="flex size-12 items-center justify-center rounded-2xl bg-stone-100 text-sm font-semibold text-stone-700 dark:bg-zinc-800 dark:text-zinc-200">
+                                <span class="flex size-9 items-center justify-center rounded-xl bg-stone-100 text-sm font-semibold text-stone-700 dark:bg-zinc-800 dark:text-zinc-200 sm:size-10">
                                     {{ str($shop->name)->substr(0, 2)->upper() }}
                                 </span>
-                                <span class="space-y-1">
-                                    <flux:heading size="lg">{{ $shop->name }}</flux:heading>
-                                    <flux:text class="text-zinc-500 dark:text-zinc-400">
+                                <span class="min-w-0 space-y-0.5">
+                                    <flux:heading size="lg" class="truncate">{{ $shop->name }}</flux:heading>
+                                    <flux:text class="text-sm text-zinc-500 dark:text-zinc-400">
                                         {{ $shop->shoppingListItems->where('purchased', false)->count() === 1
                                             ? __('1 producte pendent')
                                             : __(':count productes pendents', ['count' => $shop->shoppingListItems->where('purchased', false)->count()]) }}
                                     </flux:text>
-                                    <flux:text class="text-xs uppercase tracking-[0.18em] text-zinc-400 dark:text-zinc-500">
+                                    <flux:text class="hidden text-[0.7rem] uppercase tracking-[0.16em] text-zinc-400 dark:text-zinc-500 sm:block">
                                         {{ $shop->user_group_id !== null
                                             ? __('Grup: :group', ['group' => $shop->userGroup?->name])
                                             : __('Botiga personal') }}
@@ -364,12 +366,12 @@ new #[Title('Llista de la compra')] class extends Component
                         </div>
 
                         <div x-show="expanded">
-                            <div class="space-y-4 px-5 py-5">
+                            <div class="space-y-2.5 px-3 py-3 sm:px-4">
                                 <form
                                     x-show="addingItem"
                                     x-cloak
                                     wire:submit="addItem({{ $shop->id }})"
-                                    class="grid gap-3 rounded-2xl border border-zinc-200/70 bg-zinc-50/90 p-4 dark:border-zinc-700/70 dark:bg-zinc-950/40 md:grid-cols-[minmax(0,1fr)_9rem_12rem_auto]"
+                                    class="grid gap-2.5 rounded-xl border border-zinc-200/70 bg-zinc-50/90 p-2.5 dark:border-zinc-700/70 dark:bg-zinc-950/40 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_8rem_11rem_auto]"
                                 >
                                     <flux:input
                                         wire:model="newItemNames.{{ $shop->id }}"
@@ -379,7 +381,7 @@ new #[Title('Llista de la compra')] class extends Component
 
                                     <flux:input
                                         wire:model="newItemQuantities.{{ $shop->id }}"
-                                        :label="__('Quantitat')"
+                                        :label="__('Qtat.')"
                                         type="number"
                                         min="1"
                                     />
@@ -393,20 +395,20 @@ new #[Title('Llista de la compra')] class extends Component
                                     </flux:select>
 
                                     <div class="flex items-end">
-                                        <flux:button variant="primary" type="submit" class="w-full md:w-auto">
+                                        <flux:button variant="primary" type="submit" class="w-full xl:w-auto">
                                             {{ __('Afegir') }}
                                         </flux:button>
                                     </div>
                                 </form>
 
                                 @if ($shop->shoppingListItems->isEmpty())
-                                    <div class="rounded-2xl border border-dashed border-zinc-200 px-4 py-8 text-center dark:border-zinc-700">
+                                    <div class="rounded-xl border border-dashed border-zinc-200 px-3 py-4 text-center dark:border-zinc-700">
                                         <flux:text class="text-zinc-500 dark:text-zinc-400">
                                             {{ __('Encara no hi ha productes en aquesta botiga.') }}
                                         </flux:text>
                                     </div>
                                 @else
-                                    <div class="space-y-3">
+                                    <div class="space-y-2">
                                         @foreach ($shop->shoppingListItems as $item)
                                             <div
                                                 wire:key="item-{{ $item->id }}"
@@ -414,7 +416,7 @@ new #[Title('Llista de la compra')] class extends Component
                                                 :class="purchased
                                                     ? 'border-emerald-200 bg-emerald-50/80 dark:border-emerald-900/70 dark:bg-emerald-950/30'
                                                     : 'border-zinc-200/70 bg-white dark:border-zinc-700/70 dark:bg-zinc-950/30'"
-                                                class="grid gap-3 rounded-2xl border p-4 md:grid-cols-[auto_minmax(0,1fr)_8rem]"
+                                                class="grid grid-cols-[auto_minmax(0,1fr)] gap-2 rounded-xl border p-2.5 sm:grid-cols-[auto_minmax(0,1fr)_7.5rem] sm:items-center"
                                             >
                                                 <label class="mt-1 flex cursor-pointer items-start">
                                                     <input
@@ -430,28 +432,30 @@ new #[Title('Llista de la compra')] class extends Component
                                                         :class="purchased
                                                             ? 'text-zinc-400 line-through dark:text-zinc-500'
                                                             : 'text-zinc-900 dark:text-zinc-50'"
-                                                        class="font-medium"
+                                                        class="font-medium leading-tight"
                                                     >
                                                         {{ $item->name }}
                                                     </p>
-                                                    <div class="flex flex-wrap items-center gap-2 text-sm text-zinc-500 dark:text-zinc-400">
+                                                    <div class="flex flex-wrap items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400">
                                                         <span>{{ $item->purchased ? __('Comprat') : __('Per comprar') }}</span>
-                                                        <span class="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
+                                                        <span class="rounded-full bg-zinc-100 px-2 py-0.5 text-[0.7rem] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
                                                             {{ $item->visibility === \App\ShoppingListItemVisibility::Public ? __('Públic') : __('Privat') }}
                                                         </span>
-                                                        <span class="text-xs uppercase tracking-[0.18em] text-zinc-400 dark:text-zinc-500">
+                                                        <span class="hidden text-[0.7rem] uppercase tracking-[0.16em] text-zinc-400 dark:text-zinc-500 md:inline">
                                                             {{ __('Creat per :name', ['name' => $item->user->name]) }}
                                                         </span>
                                                     </div>
                                                 </div>
 
-                                                <flux:input
-                                                    :label="__('Quantitat')"
-                                                    type="number"
-                                                    min="1"
-                                                    :value="$item->quantity"
-                                                    wire:change="updateItemQuantity({{ $item->id }}, $event.target.value)"
-                                                />
+                                                <div class="col-span-2 sm:col-span-1">
+                                                    <flux:input
+                                                        :label="__('Qtat.')"
+                                                        type="number"
+                                                        min="1"
+                                                        :value="$item->quantity"
+                                                        wire:change="updateItemQuantity({{ $item->id }}, $event.target.value)"
+                                                    />
+                                                </div>
                                             </div>
                                         @endforeach
                                     </div>
@@ -465,7 +469,7 @@ new #[Title('Llista de la compra')] class extends Component
     </div>
 
     <flux:modal name="shop-form" class="max-w-lg">
-        <form wire:submit="saveShop" class="space-y-6">
+        <form wire:submit="saveShop" class="space-y-4">
             <div class="space-y-2">
                 <flux:heading size="lg">
                     {{ $editingShopId === null ? __('Nova botiga') : __('Edita la botiga') }}
@@ -477,7 +481,7 @@ new #[Title('Llista de la compra')] class extends Component
 
             <flux:input wire:model="shopName" :label="__('Nom')" :placeholder="__('Ex. Mercat central')" />
 
-            <div class="flex justify-end gap-3">
+            <div class="flex justify-end gap-2">
                 <flux:modal.close>
                     <flux:button variant="filled">{{ __('Cancel·la') }}</flux:button>
                 </flux:modal.close>
@@ -490,7 +494,7 @@ new #[Title('Llista de la compra')] class extends Component
     </flux:modal>
 
     <flux:modal name="delete-shop" class="max-w-lg">
-        <div class="space-y-6">
+        <div class="space-y-4">
             <div class="space-y-2">
                 <flux:heading size="lg">{{ __('Eliminar botiga') }}</flux:heading>
                 <flux:text class="text-zinc-500 dark:text-zinc-400">
@@ -498,7 +502,7 @@ new #[Title('Llista de la compra')] class extends Component
                 </flux:text>
             </div>
 
-            <div class="flex justify-end gap-3">
+            <div class="flex justify-end gap-2">
                 <flux:modal.close>
                     <flux:button variant="filled">{{ __('Cancel·la') }}</flux:button>
                 </flux:modal.close>

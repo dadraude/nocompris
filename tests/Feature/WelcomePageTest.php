@@ -1,11 +1,9 @@
 <?php
 
-test('welcome page showcases the branded landing page', function () {
-    $response = $this->get(route('home'));
+test('root redirects to login', function () {
+    $response = $this->get('/');
 
     $response
-        ->assertOk()
-        ->assertSee('NoCompris')
-        ->assertSee('La llista compartida que converteix el caos en rutina clara.')
-        ->assertSee('Inicia sessió');
+        ->assertRedirect('/login')
+        ->assertStatus(302);
 });

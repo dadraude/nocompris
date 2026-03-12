@@ -5,20 +5,34 @@ namespace App\Providers;
 use App\Actions\Fortify\CreateNewUser;
 use App\Actions\Fortify\ResetUserPassword;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 use Illuminate\Support\Str;
+use Laravel\Fortify\Contracts\LoginResponse as LoginResponseContract;
 use Laravel\Fortify\Fortify;
 
 class FortifyServiceProvider extends ServiceProvider
 {
+    private const string EMAIL_LOGIN_SESSION_KEY = 'email_login.pending';
+
     /**
      * Register any application services.
      */
     public function register(): void
     {
-        //
+        $this->app->singleton(LoginResponseContract::class, function () {
+            return new class implements LoginResponseContract
+            {
+                public function toResponse($request): RedirectResponse
+                {
+                    $route = $request->user()?->is_master ? 'master.index' : 'dashboard';
+
+                    return redirect()->route($route);
+                }
+            };
+        });
     }
 
     /**
@@ -27,6 +41,7 @@ class FortifyServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->configureActions();
+        $this->configureAuthentication();
         $this->configureViews();
         $this->configureRateLimiting();
     }
@@ -38,6 +53,14 @@ class FortifyServiceProvider extends ServiceProvider
     {
         Fortify::resetUserPasswordsUsing(ResetUserPassword::class);
         Fortify::createUsersUsing(CreateNewUser::class);
+    }
+
+    /**
+     * Configure authentication behavior.
+     */
+    private function configureAuthentication(): void
+    {
+        Fortify::authenticateUsing(fn () => null);
     }
 
     /**
@@ -67,6 +90,23 @@ class FortifyServiceProvider extends ServiceProvider
             $throttleKey = Str::transliterate(Str::lower($request->input(Fortify::username())).'|'.$request->ip());
 
             return Limit::perMinute(5)->by($throttleKey);
+        });
+
+        RateLimiter::for('login-code', function (Request $request) {
+            $email = (string) $request->input(
+                'email',
+                $request->session()->get(self::EMAIL_LOGIN_SESSION_KEY.'.email', 'guest')
+            );
+
+            $throttleKey = Str::transliterate(Str::lower($email).'|'.$request->ip());
+
+            return Limit::perMinute(5)->by($throttleKey);
+        });
+
+        RateLimiter::for('login-code-verification', function (Request $request) {
+            $pendingUserId = (string) $request->session()->get(self::EMAIL_LOGIN_SESSION_KEY.'.user_id', 'guest');
+
+            return Limit::perMinute(5)->by($pendingUserId.'|'.$request->ip());
         });
     }
 }

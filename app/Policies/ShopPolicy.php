@@ -12,7 +12,7 @@ class ShopPolicy
      */
     public function viewAny(User $user): bool
     {
-        return true;
+        return ! $user->is_master;
     }
 
     /**
@@ -28,7 +28,7 @@ class ShopPolicy
      */
     public function create(User $user): bool
     {
-        return true;
+        return ! $user->is_master;
     }
 
     /**
