@@ -2,10 +2,13 @@
     'sidebar' => false,
 ])
 
-<a {{ $attributes->class([
+<a
+    aria-label="{{ config('app.name') === 'Laravel' ? 'NoCompris' : config('app.name') }}"
+    {{ $attributes->class([
     'group inline-flex items-center gap-3 text-left',
     'w-full' => $sidebar,
-]) }}>
+]) }}
+>
     <x-app-logo-icon class="size-10 shrink-0 rounded-2xl" />
 
     <span class="grid flex-1 leading-tight">

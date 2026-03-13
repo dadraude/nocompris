@@ -26,6 +26,24 @@ test('login page shows login form and expected content', function () {
         ->assertDontSee('Llista domèstica compartida');
 });
 
+test('login page exposes the current brand assets', function () {
+    $response = $this->get(route('login'));
+
+    $response
+        ->assertOk()
+        ->assertSee('data-brand-mark', false)
+        ->assertSee('aria-label="NoCompris"', false)
+        ->assertSee('favicon.svg', false)
+        ->assertSee('favicon.ico', false)
+        ->assertSee('apple-touch-icon.png', false);
+
+    expect(public_path('favicon.svg'))->toBeFile();
+    expect(public_path('favicon.ico'))->toBeFile();
+    expect(public_path('apple-touch-icon.png'))->toBeFile();
+    expect(public_path('images/logo.svg'))->toBeFile();
+    expect(public_path('images/logo-mark.svg'))->toBeFile();
+});
+
 test('users can request a login code', function () {
     Notification::fake();
 
