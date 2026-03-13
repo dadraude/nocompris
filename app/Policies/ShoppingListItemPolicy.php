@@ -46,6 +46,14 @@ class ShoppingListItemPolicy
     }
 
     /**
+     * Determine whether the user can reorder the model.
+     */
+    public function reorder(User $user, ShoppingListItem $shoppingListItem): bool
+    {
+        return $this->update($user, $shoppingListItem);
+    }
+
+    /**
      * Determine whether the user can delete the model.
      */
     public function delete(User $user, ShoppingListItem $shoppingListItem): bool

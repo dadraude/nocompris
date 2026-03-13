@@ -40,6 +40,14 @@ class ShopPolicy
     }
 
     /**
+     * Determine whether the user can reorder the model.
+     */
+    public function reorder(User $user, Shop $shop): bool
+    {
+        return ! $user->is_master && $shop->isVisibleTo($user);
+    }
+
+    /**
      * Determine whether the user can delete the model.
      */
     public function delete(User $user, Shop $shop): bool

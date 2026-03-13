@@ -92,7 +92,10 @@ test('shopping list renders compact layout hooks', function () {
         ->assertSuccessful()
         ->assertSee('max-w-[90rem]', false)
         ->assertSee("window.matchMedia('(min-width: 768px)').matches", false)
-        ->assertSee('rounded-xl', false);
+        ->assertSee('rounded-xl', false)
+        ->assertSee('wire:sort="reorderShops"', false)
+        ->assertSee('wire:sort:item="'.$shop->id.'"', false)
+        ->assertSee('wire:sort="reorderItems('.$shop->id.', $item, $position)"', false);
 });
 
 test('user can create a shop shared with their group using the next position', function () {
@@ -206,6 +209,79 @@ test('user can add a private item with quantity and next position', function () 
     expect($item?->user_id)->toBe($user->id);
 });
 
+test('group member can reorder visible shops with drag and drop', function () {
+    $group = UserGroup::factory()->create();
+    $owner = User::factory()->inGroup($group)->create();
+    $user = User::factory()->inGroup($group)->create();
+
+    $firstShop = Shop::factory()->for($owner)->create([
+        'name' => 'Primera',
+        'user_group_id' => $group->id,
+        'position' => 1,
+    ]);
+
+    $secondShop = Shop::factory()->for($user)->create([
+        'name' => 'Segona',
+        'user_group_id' => $group->id,
+        'position' => 2,
+    ]);
+
+    $thirdShop = Shop::factory()->for($owner)->create([
+        'name' => 'Tercera',
+        'user_group_id' => $group->id,
+        'position' => 3,
+    ]);
+
+    $this->actingAs($user);
+
+    $response = Livewire::test('pages::shopping-list')
+        ->call('reorderShops', $thirdShop->id, 0);
+
+    $response->assertHasNoErrors();
+
+    expect($thirdShop->refresh()->position)->toBe(1);
+    expect($firstShop->refresh()->position)->toBe(2);
+    expect($secondShop->refresh()->position)->toBe(3);
+});
+
+test('group member can reorder visible public items without touching hidden private positions', function () {
+    $group = UserGroup::factory()->create();
+    $owner = User::factory()->inGroup($group)->create();
+    $user = User::factory()->inGroup($group)->create();
+    $shop = Shop::factory()->for($owner)->create([
+        'user_group_id' => $group->id,
+        'position' => 1,
+    ]);
+
+    $firstPublicItem = ShoppingListItem::factory()->for($shop)->for($owner)->create([
+        'name' => 'Pomes',
+        'visibility' => ShoppingListItemVisibility::Public,
+        'position' => 1,
+    ]);
+
+    $hiddenPrivateItem = ShoppingListItem::factory()->for($shop)->for($owner)->asPrivate()->create([
+        'name' => 'Secret',
+        'position' => 2,
+    ]);
+
+    $secondPublicItem = ShoppingListItem::factory()->for($shop)->for($owner)->create([
+        'name' => 'Llet',
+        'visibility' => ShoppingListItemVisibility::Public,
+        'position' => 3,
+    ]);
+
+    $this->actingAs($user);
+
+    $response = Livewire::test('pages::shopping-list')
+        ->call('reorderItems', $shop->id, $secondPublicItem->id, 0);
+
+    $response->assertHasNoErrors();
+
+    expect($secondPublicItem->refresh()->position)->toBe(1);
+    expect($hiddenPrivateItem->refresh()->position)->toBe(2);
+    expect($firstPublicItem->refresh()->position)->toBe(3);
+});
+
 test('group member can update a public item quantity', function () {
     $group = UserGroup::factory()->create();
     $owner = User::factory()->inGroup($group)->create();
@@ -274,8 +350,10 @@ test('user cannot modify another users shops or private items', function () {
     $this->actingAs($user);
 
     expect(Gate::forUser($user)->denies('update', $otherShop))->toBeTrue();
+    expect(Gate::forUser($user)->allows('reorder', $otherShop))->toBeTrue();
     expect(Gate::forUser($user)->denies('update', $otherPrivateItem))->toBeTrue();
     expect(Gate::forUser($user)->allows('update', $otherPublicItem))->toBeTrue();
+    expect(Gate::forUser($user)->allows('reorder', $otherPublicItem))->toBeTrue();
 
     $shopResponse = Livewire::test('pages::shopping-list')
         ->call('startEditingShop', $otherShop->id);

@@ -1,0 +1,29 @@
+{
+    "name": "NoCompris",
+    "short_name": "NoCompris",
+    "description": "Llista de la compra compartida per organitzar botigues i productes des del mòbil o l'escriptori.",
+    "start_url": "/login",
+    "scope": "/",
+    "display": "standalone",
+    "background_color": "#f5f5f4",
+    "theme_color": "#1c1917",
+    "lang": "ca",
+    "icons": [
+        {
+            "src": "/pwa-192x192.png",
+            "sizes": "192x192",
+            "type": "image/png"
+        },
+        {
+            "src": "/pwa-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png"
+        },
+        {
+            "src": "/pwa-512x512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "maskable"
+        }
+    ]
+}

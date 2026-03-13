@@ -4,6 +4,7 @@ use App\Concerns\ShoppingListValidationRules;
 use App\Models\Shop;
 use App\Models\ShoppingListItem;
 use App\ShoppingListItemVisibility;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
@@ -207,6 +208,45 @@ new #[Title('Llista de la compra')] class extends Component
     }
 
     /**
+     * Persist a new order for the visible shops.
+     */
+    public function reorderShops(int $shopId, int $position): void
+    {
+        $shop = $this->findShop($shopId);
+
+        $this->authorize('reorder', $shop);
+
+        $orderedShops = $this->moveModelsToPosition($this->shops, $shopId, $position);
+
+        $this->persistPositions(
+            $orderedShops,
+            range(1, $orderedShops->count()),
+        );
+    }
+
+    /**
+     * Persist a new order for the visible items in a shop.
+     */
+    public function reorderItems(int $shopId, int $itemId, int $position): void
+    {
+        $shop = $this->findShop($shopId);
+        $visibleItems = $shop->shoppingListItems()
+            ->visibleTo(Auth::user())
+            ->with('user')
+            ->get();
+        $item = $visibleItems->firstWhere('id', $itemId) ?? $this->findItem($itemId);
+
+        $this->authorize('reorder', $item);
+
+        $orderedItems = $this->moveModelsToPosition($visibleItems, $itemId, $position);
+
+        $this->persistPositions(
+            $orderedItems,
+            $visibleItems->pluck('position')->sort()->values()->all(),
+        );
+    }
+
+    /**
      * Get the next position for a new shop.
      */
     protected function nextShopPosition(): int
@@ -220,6 +260,51 @@ new #[Title('Llista de la compra')] class extends Component
     protected function nextItemPosition(Shop $shop): int
     {
         return (int) $shop->shoppingListItems()->max('position') + 1;
+    }
+
+    /**
+     * Move a model to the requested zero-based index.
+     */
+    protected function moveModelsToPosition(Collection $models, int $modelId, int $position): Collection
+    {
+        $orderedModels = $models->values();
+        $currentIndex = $orderedModels->search(
+            fn (Model $model): bool => $model->getKey() === $modelId,
+        );
+
+        if ($currentIndex === false) {
+            abort(404);
+        }
+
+        $targetIndex = max(0, min($position, $orderedModels->count() - 1));
+
+        if ($currentIndex === $targetIndex) {
+            return $orderedModels;
+        }
+
+        $movedModel = $orderedModels->pull($currentIndex);
+
+        $orderedModels->splice($targetIndex, 0, [$movedModel]);
+
+        return $orderedModels->values();
+    }
+
+    /**
+     * Persist the supplied positions for the given models.
+     *
+     * @param  array<int, int>  $positions
+     */
+    protected function persistPositions(Collection $models, array $positions): void
+    {
+        $models->each(function (Model $model, int $index) use ($positions): void {
+            $position = $positions[$index] ?? $index + 1;
+
+            if ((int) $model->position === $position) {
+                return;
+            }
+
+            $model->update(['position' => $position]);
+        });
     }
 
     /**
@@ -310,37 +395,51 @@ new #[Title('Llista de la compra')] class extends Component
                 </flux:text>
             </div>
         @else
-            <div class="grid gap-3">
+            <div class="grid gap-3" wire:sort="reorderShops">
                 @foreach ($this->shops as $shop)
                     <article
                         wire:key="shop-{{ $shop->id }}"
+                        wire:sort:item="{{ $shop->id }}"
                         x-data="{ expanded: window.matchMedia('(min-width: 768px)').matches, addingItem: false }"
                         x-on:item-added.window="if ($event.detail.shopId === {{ $shop->id }}) addingItem = false"
                         class="overflow-hidden rounded-xl border border-zinc-200/80 bg-white/90 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-900/70 sm:rounded-2xl"
                     >
                         <div class="flex flex-col gap-2 border-b border-zinc-200/70 px-3 py-3 dark:border-zinc-700/70 sm:flex-row sm:items-center sm:justify-between sm:px-4">
-                            <button
-                                type="button"
-                                class="flex min-w-0 flex-1 items-center gap-2 text-left"
-                                x-on:click="expanded = ! expanded"
-                            >
-                                <span class="flex size-9 items-center justify-center rounded-xl bg-stone-100 text-sm font-semibold text-stone-700 dark:bg-zinc-800 dark:text-zinc-200 sm:size-10">
-                                    {{ str($shop->name)->substr(0, 2)->upper() }}
-                                </span>
-                                <span class="min-w-0 space-y-0.5">
-                                    <flux:heading size="lg" class="truncate">{{ $shop->name }}</flux:heading>
-                                    <flux:text class="text-sm text-zinc-500 dark:text-zinc-400">
-                                        {{ $shop->shoppingListItems->where('purchased', false)->count() === 1
-                                            ? __('1 producte pendent')
-                                            : __(':count productes pendents', ['count' => $shop->shoppingListItems->where('purchased', false)->count()]) }}
-                                    </flux:text>
-                                    <flux:text class="hidden text-[0.7rem] uppercase tracking-[0.16em] text-zinc-400 dark:text-zinc-500 sm:block">
-                                        {{ $shop->user_group_id !== null
-                                            ? __('Grup: :group', ['group' => $shop->userGroup?->name])
-                                            : __('Botiga personal') }}
-                                    </flux:text>
-                                </span>
-                            </button>
+                            <div class="flex min-w-0 flex-1 items-center gap-2">
+                                @can('reorder', $shop)
+                                    <button
+                                        type="button"
+                                        wire:sort:handle
+                                        class="inline-flex size-9 shrink-0 cursor-grab items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-400 transition hover:border-zinc-300 hover:text-zinc-600 active:cursor-grabbing dark:border-zinc-700 dark:bg-zinc-950/40 dark:text-zinc-500 dark:hover:border-zinc-600 dark:hover:text-zinc-300"
+                                        aria-label="{{ __('Reordena la botiga') }}"
+                                    >
+                                        <flux:icon.bars-2 class="size-4" />
+                                    </button>
+                                @endcan
+
+                                <button
+                                    type="button"
+                                    class="flex min-w-0 flex-1 items-center gap-2 text-left"
+                                    x-on:click="expanded = ! expanded"
+                                >
+                                    <span class="flex size-9 items-center justify-center rounded-xl bg-stone-100 text-sm font-semibold text-stone-700 dark:bg-zinc-800 dark:text-zinc-200 sm:size-10">
+                                        {{ str($shop->name)->substr(0, 2)->upper() }}
+                                    </span>
+                                    <span class="min-w-0 space-y-0.5">
+                                        <flux:heading size="lg" class="truncate">{{ $shop->name }}</flux:heading>
+                                        <flux:text class="text-sm text-zinc-500 dark:text-zinc-400">
+                                            {{ $shop->shoppingListItems->where('purchased', false)->count() === 1
+                                                ? __('1 producte pendent')
+                                                : __(':count productes pendents', ['count' => $shop->shoppingListItems->where('purchased', false)->count()]) }}
+                                        </flux:text>
+                                        <flux:text class="hidden text-[0.7rem] uppercase tracking-[0.16em] text-zinc-400 dark:text-zinc-500 sm:block">
+                                            {{ $shop->user_group_id !== null
+                                                ? __('Grup: :group', ['group' => $shop->userGroup?->name])
+                                                : __('Botiga personal') }}
+                                        </flux:text>
+                                    </span>
+                                </button>
+                            </div>
 
                             <div class="flex flex-wrap items-center gap-2">
                                 <flux:button variant="ghost" size="sm" x-on:click="addingItem = ! addingItem">
@@ -408,16 +507,30 @@ new #[Title('Llista de la compra')] class extends Component
                                         </flux:text>
                                     </div>
                                 @else
-                                    <div class="space-y-2">
+                                    <div class="space-y-2" wire:sort="reorderItems({{ $shop->id }}, $item, $position)">
                                         @foreach ($shop->shoppingListItems as $item)
                                             <div
                                                 wire:key="item-{{ $item->id }}"
+                                                wire:sort:item="{{ $item->id }}"
                                                 x-data="{ purchased: @js($item->purchased) }"
                                                 :class="purchased
                                                     ? 'border-emerald-200 bg-emerald-50/80 dark:border-emerald-900/70 dark:bg-emerald-950/30'
                                                     : 'border-zinc-200/70 bg-white dark:border-zinc-700/70 dark:bg-zinc-950/30'"
-                                                class="grid grid-cols-[auto_minmax(0,1fr)] gap-2 rounded-xl border p-2.5 sm:grid-cols-[auto_minmax(0,1fr)_7.5rem] sm:items-center"
+                                                class="grid grid-cols-[auto_auto_minmax(0,1fr)] gap-2 rounded-xl border p-2.5 sm:grid-cols-[auto_auto_minmax(0,1fr)_7.5rem] sm:items-center"
                                             >
+                                                @can('reorder', $item)
+                                                    <button
+                                                        type="button"
+                                                        wire:sort:handle
+                                                        class="mt-0.5 inline-flex size-8 shrink-0 cursor-grab items-center justify-center rounded-lg text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 active:cursor-grabbing dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+                                                        aria-label="{{ __('Reordena el producte') }}"
+                                                    >
+                                                        <flux:icon.bars-2 class="size-4" />
+                                                    </button>
+                                                @else
+                                                    <span class="size-8 shrink-0"></span>
+                                                @endif
+
                                                 <label class="mt-1 flex cursor-pointer items-start">
                                                     <input
                                                         type="checkbox"
@@ -447,7 +560,7 @@ new #[Title('Llista de la compra')] class extends Component
                                                     </div>
                                                 </div>
 
-                                                <div class="col-span-2 sm:col-span-1">
+                                                <div class="col-span-3 sm:col-span-1">
                                                     <flux:input
                                                         :label="__('Qtat.')"
                                                         type="number"
