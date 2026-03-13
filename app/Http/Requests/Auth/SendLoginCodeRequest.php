@@ -48,6 +48,7 @@ class SendLoginCodeRequest extends FormRequest
     {
         $this->merge([
             'email' => strtolower(trim((string) $this->input('email'))),
+            'remember' => $this->has('remember') ? $this->boolean('remember') : null,
         ]);
     }
 

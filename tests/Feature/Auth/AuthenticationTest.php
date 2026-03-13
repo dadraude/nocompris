@@ -2,6 +2,7 @@
 
 use App\Models\User;
 use App\Notifications\Auth\LoginCodeNotification;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Notification;
 use Laravel\Fortify\Features;
 
@@ -62,6 +63,30 @@ test('users can request a login code', function () {
     $this->assertGuest();
 });
 
+test('users can request a login code while asking to be remembered', function () {
+    Notification::fake();
+
+    $user = User::factory()->create();
+
+    $response = $this->post(route('login.email.send'), [
+        'email' => $user->email,
+        'remember' => 'on',
+    ]);
+
+    $response
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('login.verify', absolute: false))
+        ->assertSessionHas('email_login.pending', [
+            'user_id' => $user->getKey(),
+            'email' => $user->email,
+            'remember' => true,
+        ]);
+
+    Notification::assertSentTo($user, LoginCodeNotification::class);
+
+    $this->assertGuest();
+});
+
 test('users can authenticate using a valid email code', function () {
     Notification::fake();
 
@@ -86,6 +111,36 @@ test('users can authenticate using a valid email code', function () {
     $response
         ->assertSessionHasNoErrors()
         ->assertRedirect(route('dashboard', absolute: false));
+
+    $this->assertAuthenticatedAs($user);
+});
+
+test('users can stay remembered after authenticating with a valid email code', function () {
+    Notification::fake();
+
+    $user = User::factory()->create();
+
+    $this->post(route('login.email.send'), [
+        'email' => $user->email,
+        'remember' => 'on',
+    ]);
+
+    $code = null;
+
+    Notification::assertSentTo($user, LoginCodeNotification::class, function (LoginCodeNotification $notification) use (&$code) {
+        $code = $notification->code;
+
+        return true;
+    });
+
+    $response = $this->post(route('login.verify.store'), [
+        'code' => $code,
+    ]);
+
+    $response
+        ->assertSessionHasNoErrors()
+        ->assertRedirect(route('dashboard', absolute: false))
+        ->assertCookie(Auth::guard(config('fortify.guard'))->getRecallerName());
 
     $this->assertAuthenticatedAs($user);
 });
