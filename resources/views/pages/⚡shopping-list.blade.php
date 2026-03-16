@@ -402,9 +402,10 @@ new #[Title('Llista de la compra')] class extends Component
                         wire:sort:item="{{ $shop->id }}"
                         x-data="{ expanded: window.matchMedia('(min-width: 768px)').matches, addingItem: false }"
                         x-on:item-added.window="if ($event.detail.shopId === {{ $shop->id }}) addingItem = false"
-                        class="overflow-hidden rounded-xl border border-zinc-200/80 bg-white/90 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-900/70 sm:rounded-2xl"
+                        data-shop-shell
+                        class="app-shop-card"
                     >
-                        <div class="flex flex-col gap-2 border-b border-zinc-200/70 px-3 py-3 dark:border-zinc-700/70 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+                        <div class="flex flex-col gap-3 border-b border-zinc-200/70 bg-linear-to-br from-white via-zinc-50 to-stone-50 px-3 py-3 dark:border-zinc-700/70 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-4">
                             <div class="flex min-w-0 flex-1 items-center gap-2">
                                 @can('reorder', $shop)
                                     <button
@@ -422,21 +423,23 @@ new #[Title('Llista de la compra')] class extends Component
                                     class="flex min-w-0 flex-1 items-center gap-2 text-left"
                                     x-on:click="expanded = ! expanded"
                                 >
-                                    <span class="flex size-9 items-center justify-center rounded-xl bg-stone-100 text-sm font-semibold text-stone-700 dark:bg-zinc-800 dark:text-zinc-200 sm:size-10">
+                                    <span class="flex size-9 items-center justify-center rounded-xl border border-zinc-200/80 bg-white text-sm font-semibold text-stone-700 shadow-sm dark:border-zinc-700/80 dark:bg-zinc-900 dark:text-zinc-100 sm:size-10">
                                         {{ str($shop->name)->substr(0, 2)->upper() }}
                                     </span>
-                                    <span class="min-w-0 space-y-0.5">
+                                    <span class="min-w-0 space-y-1">
                                         <flux:heading size="lg" class="truncate">{{ $shop->name }}</flux:heading>
-                                        <flux:text class="text-sm text-zinc-500 dark:text-zinc-400">
-                                            {{ $shop->shoppingListItems->where('purchased', false)->count() === 1
-                                                ? __('1 producte pendent')
-                                                : __(':count productes pendents', ['count' => $shop->shoppingListItems->where('purchased', false)->count()]) }}
-                                        </flux:text>
-                                        <flux:text class="hidden text-[0.7rem] uppercase tracking-[0.16em] text-zinc-400 dark:text-zinc-500 sm:block">
-                                            {{ $shop->user_group_id !== null
-                                                ? __('Grup: :group', ['group' => $shop->userGroup?->name])
-                                                : __('Botiga personal') }}
-                                        </flux:text>
+                                        <div class="flex flex-wrap items-center gap-1.5">
+                                            <span class="app-shop-pill">
+                                                {{ $shop->shoppingListItems->where('purchased', false)->count() === 1
+                                                    ? __('1 producte pendent')
+                                                    : __(':count productes pendents', ['count' => $shop->shoppingListItems->where('purchased', false)->count()]) }}
+                                            </span>
+                                            <span class="app-shop-pill">
+                                                {{ $shop->user_group_id !== null
+                                                    ? __('Grup: :group', ['group' => $shop->userGroup?->name])
+                                                    : __('Botiga personal') }}
+                                            </span>
+                                        </div>
                                     </span>
                                 </button>
                             </div>
@@ -465,114 +468,139 @@ new #[Title('Llista de la compra')] class extends Component
                         </div>
 
                         <div x-show="expanded">
-                            <div class="space-y-2.5 px-3 py-3 sm:px-4">
-                                <form
-                                    x-show="addingItem"
-                                    x-cloak
-                                    wire:submit="addItem({{ $shop->id }})"
-                                    class="grid gap-2.5 rounded-xl border border-zinc-200/70 bg-zinc-50/90 p-2.5 dark:border-zinc-700/70 dark:bg-zinc-950/40 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_8rem_11rem_auto]"
-                                >
-                                    <flux:input
-                                        wire:model="newItemNames.{{ $shop->id }}"
-                                        :label="__('Producte')"
-                                        :placeholder="__('Ex. tomàquets')"
-                                    />
+                            <div class="bg-zinc-50/45 px-3 py-3 dark:bg-zinc-950/20 sm:px-4 sm:pb-4">
+                                <div data-shop-body class="app-shop-section space-y-3">
+                                    <div class="flex flex-col gap-2 border-b border-zinc-200/70 pb-2 dark:border-zinc-700/70 sm:flex-row sm:items-center sm:justify-between">
+                                        <div class="space-y-1">
+                                            <p class="app-kicker">{{ __('Contingut de la botiga') }}</p>
+                                            <flux:text class="text-sm text-zinc-500 dark:text-zinc-400">
+                                                {{ __('Gestiona els productes i les quantitats sense perdre de vista la botiga.') }}
+                                            </flux:text>
+                                        </div>
+                                        <span class="app-shop-pill self-start sm:self-auto">
+                                            {{ $shop->shoppingListItems->count() === 1
+                                                ? __('1 producte')
+                                                : __(':count productes', ['count' => $shop->shoppingListItems->count()]) }}
+                                        </span>
+                                    </div>
 
-                                    <flux:input
-                                        wire:model="newItemQuantities.{{ $shop->id }}"
-                                        :label="__('Qtat.')"
-                                        type="number"
-                                        min="1"
-                                    />
-
-                                    <flux:select
-                                        wire:model="newItemVisibilities.{{ $shop->id }}"
-                                        :label="__('Visibilitat')"
+                                    <div
+                                        x-show="addingItem"
+                                        x-cloak
+                                        class="rounded-xl border border-zinc-200/80 bg-white/90 p-3 shadow-xs dark:border-zinc-700/70 dark:bg-zinc-950/50"
                                     >
-                                        <option value="{{ \App\ShoppingListItemVisibility::Public->value }}">{{ __('Públic del grup') }}</option>
-                                        <option value="{{ \App\ShoppingListItemVisibility::Private->value }}">{{ __('Privat') }}</option>
-                                    </flux:select>
+                                        <div class="mb-3 flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                                            <p class="text-sm font-medium text-zinc-800 dark:text-zinc-100">{{ __('Nou producte') }}</p>
+                                            <p class="text-xs text-zinc-500 dark:text-zinc-400">{{ __('Afegeix-lo directament a aquesta botiga.') }}</p>
+                                        </div>
 
-                                    <div class="flex items-end">
-                                        <flux:button variant="primary" type="submit" class="w-full xl:w-auto">
-                                            {{ __('Afegir') }}
-                                        </flux:button>
-                                    </div>
-                                </form>
+                                        <form
+                                            wire:submit="addItem({{ $shop->id }})"
+                                            class="grid gap-2.5 sm:grid-cols-2 xl:grid-cols-[minmax(0,1fr)_8rem_11rem_auto]"
+                                        >
+                                            <flux:input
+                                                wire:model="newItemNames.{{ $shop->id }}"
+                                                :label="__('Producte')"
+                                                :placeholder="__('Ex. tomàquets')"
+                                            />
 
-                                @if ($shop->shoppingListItems->isEmpty())
-                                    <div class="rounded-xl border border-dashed border-zinc-200 px-3 py-4 text-center dark:border-zinc-700">
-                                        <flux:text class="text-zinc-500 dark:text-zinc-400">
-                                            {{ __('Encara no hi ha productes en aquesta botiga.') }}
-                                        </flux:text>
-                                    </div>
-                                @else
-                                    <div class="space-y-2" wire:sort="reorderItems({{ $shop->id }}, $item, $position)">
-                                        @foreach ($shop->shoppingListItems as $item)
-                                            <div
-                                                wire:key="item-{{ $item->id }}"
-                                                wire:sort:item="{{ $item->id }}"
-                                                x-data="{ purchased: @js($item->purchased) }"
-                                                :class="purchased
-                                                    ? 'border-emerald-200 bg-emerald-50/80 dark:border-emerald-900/70 dark:bg-emerald-950/30'
-                                                    : 'border-zinc-200/70 bg-white dark:border-zinc-700/70 dark:bg-zinc-950/30'"
-                                                class="grid grid-cols-[auto_auto_minmax(0,1fr)] gap-2 rounded-xl border p-2.5 sm:grid-cols-[auto_auto_minmax(0,1fr)_7.5rem] sm:items-center"
+                                            <flux:input
+                                                wire:model="newItemQuantities.{{ $shop->id }}"
+                                                :label="__('Qtat.')"
+                                                type="number"
+                                                min="1"
+                                            />
+
+                                            <flux:select
+                                                wire:model="newItemVisibilities.{{ $shop->id }}"
+                                                :label="__('Visibilitat')"
                                             >
-                                                @can('reorder', $item)
-                                                    <button
-                                                        type="button"
-                                                        wire:sort:handle
-                                                        class="mt-0.5 inline-flex size-8 shrink-0 cursor-grab items-center justify-center rounded-lg text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 active:cursor-grabbing dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
-                                                        aria-label="{{ __('Reordena el producte') }}"
-                                                    >
-                                                        <flux:icon.bars-2 class="size-4" />
-                                                    </button>
-                                                @else
-                                                    <span class="size-8 shrink-0"></span>
-                                                @endif
+                                                <option value="{{ \App\ShoppingListItemVisibility::Public->value }}">{{ __('Públic del grup') }}</option>
+                                                <option value="{{ \App\ShoppingListItemVisibility::Private->value }}">{{ __('Privat') }}</option>
+                                            </flux:select>
 
-                                                <label class="mt-1 flex cursor-pointer items-start">
-                                                    <input
-                                                        type="checkbox"
-                                                        class="mt-0.5 size-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500 dark:border-zinc-600 dark:bg-zinc-900"
-                                                        :checked="purchased"
-                                                        x-on:change="purchased = ! purchased; $wire.togglePurchased({{ $item->id }})"
-                                                    >
-                                                </label>
+                                            <div class="flex items-end">
+                                                <flux:button variant="primary" type="submit" class="w-full xl:w-auto">
+                                                    {{ __('Afegir') }}
+                                                </flux:button>
+                                            </div>
+                                        </form>
+                                    </div>
 
-                                                <div class="space-y-1">
-                                                    <p
-                                                        :class="purchased
-                                                            ? 'text-zinc-400 line-through dark:text-zinc-500'
-                                                            : 'text-zinc-900 dark:text-zinc-50'"
-                                                        class="font-medium leading-tight"
-                                                    >
-                                                        {{ $item->name }}
-                                                    </p>
-                                                    <div class="flex flex-wrap items-center gap-1.5 text-sm text-zinc-500 dark:text-zinc-400">
-                                                        <span>{{ $item->purchased ? __('Comprat') : __('Per comprar') }}</span>
-                                                        <span class="rounded-full bg-zinc-100 px-2 py-0.5 text-[0.7rem] font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300">
-                                                            {{ $item->visibility === \App\ShoppingListItemVisibility::Public ? __('Públic') : __('Privat') }}
-                                                        </span>
-                                                        <span class="hidden text-[0.7rem] uppercase tracking-[0.16em] text-zinc-400 dark:text-zinc-500 md:inline">
-                                                            {{ __('Creat per :name', ['name' => $item->user->name]) }}
-                                                        </span>
+                                    @if ($shop->shoppingListItems->isEmpty())
+                                        <div class="rounded-xl border border-dashed border-zinc-200 bg-white/70 px-3 py-4 text-center dark:border-zinc-700 dark:bg-zinc-950/25">
+                                            <flux:text class="text-zinc-500 dark:text-zinc-400">
+                                                {{ __('Encara no hi ha productes en aquesta botiga.') }}
+                                            </flux:text>
+                                        </div>
+                                    @else
+                                        <div data-shop-items class="space-y-1.5" wire:sort="reorderItems({{ $shop->id }}, $item, $position)">
+                                            @foreach ($shop->shoppingListItems as $item)
+                                                <div
+                                                    wire:key="item-{{ $item->id }}"
+                                                    wire:sort:item="{{ $item->id }}"
+                                                    x-data="{ purchased: @js($item->purchased) }"
+                                                    :class="purchased
+                                                        ? 'border-emerald-200/80 bg-emerald-50/70 dark:border-emerald-900/70 dark:bg-emerald-950/20'
+                                                        : 'border-zinc-200/80 bg-white/75 dark:border-zinc-700/70 dark:bg-zinc-950/25'"
+                                                    class="grid grid-cols-[auto_auto_minmax(0,1fr)] gap-2 rounded-lg border px-2.5 py-2 sm:grid-cols-[auto_auto_minmax(0,1fr)_7.5rem] sm:items-center"
+                                                >
+                                                    @can('reorder', $item)
+                                                        <button
+                                                            type="button"
+                                                            wire:sort:handle
+                                                            class="inline-flex size-8 shrink-0 cursor-grab items-center justify-center rounded-lg text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-600 active:cursor-grabbing dark:hover:bg-zinc-800 dark:hover:text-zinc-300"
+                                                            aria-label="{{ __('Reordena el producte') }}"
+                                                        >
+                                                            <flux:icon.bars-2 class="size-4" />
+                                                        </button>
+                                                    @else
+                                                        <span class="size-8 shrink-0"></span>
+                                                    @endif
+
+                                                    <label class="flex cursor-pointer items-start pt-0.5">
+                                                        <input
+                                                            type="checkbox"
+                                                            class="mt-0.5 size-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500 dark:border-zinc-600 dark:bg-zinc-900"
+                                                            :checked="purchased"
+                                                            x-on:change="purchased = ! purchased; $wire.togglePurchased({{ $item->id }})"
+                                                        >
+                                                    </label>
+
+                                                    <div class="space-y-1">
+                                                        <p
+                                                            :class="purchased
+                                                                ? 'text-zinc-400 line-through dark:text-zinc-500'
+                                                                : 'text-zinc-900 dark:text-zinc-50'"
+                                                            class="font-medium leading-tight"
+                                                        >
+                                                            {{ $item->name }}
+                                                        </p>
+                                                        <div class="flex flex-wrap items-center gap-1.5 text-[0.8rem] text-zinc-500 dark:text-zinc-400">
+                                                            <span>{{ $item->purchased ? __('Comprat') : __('Per comprar') }}</span>
+                                                            <span class="rounded-full bg-zinc-100 px-2 py-0.5 text-[0.68rem] font-medium uppercase tracking-[0.14em] text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300">
+                                                                {{ $item->visibility === \App\ShoppingListItemVisibility::Public ? __('Públic') : __('Privat') }}
+                                                            </span>
+                                                            <span class="hidden text-[0.68rem] uppercase tracking-[0.14em] text-zinc-400 dark:text-zinc-500 md:inline">
+                                                                {{ __('Creat per :name', ['name' => $item->user->name]) }}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+
+                                                    <div class="col-span-3 sm:col-span-1">
+                                                        <flux:input
+                                                            :label="__('Qtat.')"
+                                                            type="number"
+                                                            min="1"
+                                                            :value="$item->quantity"
+                                                            wire:change="updateItemQuantity({{ $item->id }}, $event.target.value)"
+                                                        />
                                                     </div>
                                                 </div>
-
-                                                <div class="col-span-3 sm:col-span-1">
-                                                    <flux:input
-                                                        :label="__('Qtat.')"
-                                                        type="number"
-                                                        min="1"
-                                                        :value="$item->quantity"
-                                                        wire:change="updateItemQuantity({{ $item->id }}, $event.target.value)"
-                                                    />
-                                                </div>
-                                            </div>
-                                        @endforeach
-                                    </div>
-                                @endif
+                                            @endforeach
+                                        </div>
+                                    @endif
+                                </div>
                             </div>
                         </div>
                     </article>

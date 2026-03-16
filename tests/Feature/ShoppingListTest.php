@@ -93,6 +93,10 @@ test('shopping list renders compact layout hooks', function () {
         ->assertSee('max-w-[90rem]', false)
         ->assertSee("window.matchMedia('(min-width: 768px)').matches", false)
         ->assertSee('rounded-xl', false)
+        ->assertSee('data-shop-shell', false)
+        ->assertSee('data-shop-body', false)
+        ->assertSee('data-shop-items', false)
+        ->assertSee('app-shop-section', false)
         ->assertSee('wire:sort="reorderShops"', false)
         ->assertSee('wire:sort:item="'.$shop->id.'"', false)
         ->assertSee('wire:sort="reorderItems('.$shop->id.', $item, $position)"', false);
