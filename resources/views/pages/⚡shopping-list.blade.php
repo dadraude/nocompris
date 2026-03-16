@@ -9,6 +9,7 @@ use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Foundation\Auth\Access\AuthorizesRequests;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Title;
 use Livewire\Component;
@@ -18,11 +19,15 @@ new #[Title('Llista de la compra')] class extends Component
     use AuthorizesRequests;
     use ShoppingListValidationRules;
 
+    private const DEFAULT_SHOP_COLOR = '#d6d3d1';
+
     public ?int $editingShopId = null;
 
     public ?int $deletingShopId = null;
 
     public string $shopName = '';
+
+    public string $shopColor = self::DEFAULT_SHOP_COLOR;
 
     /** @var array<int, string> */
     public array $newItemNames = [];
@@ -55,30 +60,17 @@ new #[Title('Llista de la compra')] class extends Component
     }
 
     /**
-     * Build a soft shop accent palette derived from the shop name.
+     * Build the CSS variables used by the shop header accent.
      */
-    public function shopColorStyle(Shop $shop): string
+    public function shopHeaderStyle(Shop $shop): string
     {
-        $palette = [18, 28, 42, 58, 84, 110, 138, 168, 192, 214, 236, 264, 292, 320];
-        $normalizedName = trim(mb_strtolower($shop->name));
-        $hash = (int) sprintf('%u', crc32($normalizedName === '' ? 'shop' : $normalizedName));
-        $hue = $palette[$hash % count($palette)];
+        [$red, $green, $blue] = $this->rgbChannelsFromHex($shop->color);
 
         return implode('; ', [
-            "--shop-surface: hsl({$hue} 34% 98%)",
-            "--shop-header-from: hsl({$hue} 38% 93%)",
-            "--shop-header-to: hsl({$hue} 32% 89%)",
-            "--shop-section: hsl({$hue} 26% 96%)",
-            "--shop-pill: hsl({$hue} 30% 97%)",
-            "--shop-border: hsl({$hue} 24% 82%)",
-            "--shop-ink: hsl({$hue} 18% 34%)",
-            "--shop-dark-surface: hsl({$hue} 18% 11%)",
-            "--shop-dark-header-from: hsl({$hue} 20% 21%)",
-            "--shop-dark-header-to: hsl({$hue} 18% 15%)",
-            "--shop-dark-section: hsl({$hue} 16% 14%)",
-            "--shop-dark-pill: hsl({$hue} 16% 19%)",
-            "--shop-dark-border: hsl({$hue} 16% 28%)",
-            "--shop-dark-ink: hsl({$hue} 24% 82%)",
+            "--shop-header-from: rgba({$red}, {$green}, {$blue}, 0.24)",
+            "--shop-header-to: rgba({$red}, {$green}, {$blue}, 0.44)",
+            "--shop-dark-header-from: rgba({$red}, {$green}, {$blue}, 0.34)",
+            "--shop-dark-header-to: rgba({$red}, {$green}, {$blue}, 0.2)",
         ]).';';
     }
 
@@ -105,6 +97,7 @@ new #[Title('Llista de la compra')] class extends Component
 
         $this->editingShopId = $shop->id;
         $this->shopName = $shop->name;
+        $this->shopColor = $this->normalizeShopColor($shop->color);
     }
 
     /**
@@ -113,11 +106,13 @@ new #[Title('Llista de la compra')] class extends Component
     public function saveShop(): void
     {
         $validated = Validator::make(
-            ['name' => $this->shopName],
+            ['name' => $this->shopName, 'color' => $this->shopColor],
             $this->shopDataRules(),
             [],
-            ['name' => 'nom de la botiga'],
+            ['name' => 'nom de la botiga', 'color' => 'color de la capçalera'],
         )->validate();
+
+        $validated['color'] = $this->normalizeShopColor($validated['color']);
 
         if ($this->editingShopId !== null) {
             $shop = $this->findShop($this->editingShopId);
@@ -343,6 +338,37 @@ new #[Title('Llista de la compra')] class extends Component
         $this->resetValidation();
         $this->editingShopId = null;
         $this->shopName = '';
+        $this->shopColor = self::DEFAULT_SHOP_COLOR;
+    }
+
+    /**
+     * Normalize the configured shop header color.
+     */
+    protected function normalizeShopColor(?string $color): string
+    {
+        $normalizedColor = '#'.Str::lower(ltrim((string) $color, '#'));
+
+        if (! preg_match('/^#[0-9a-f]{6}$/', $normalizedColor)) {
+            return self::DEFAULT_SHOP_COLOR;
+        }
+
+        return $normalizedColor;
+    }
+
+    /**
+     * Convert a hex color into decimal RGB channels.
+     *
+     * @return array{0: int, 1: int, 2: int}
+     */
+    protected function rgbChannelsFromHex(?string $color): array
+    {
+        $normalizedColor = ltrim($this->normalizeShopColor($color), '#');
+
+        return [
+            hexdec(substr($normalizedColor, 0, 2)),
+            hexdec(substr($normalizedColor, 2, 2)),
+            hexdec(substr($normalizedColor, 4, 2)),
+        ];
     }
 
     /**
@@ -432,7 +458,7 @@ new #[Title('Llista de la compra')] class extends Component
                         x-on:item-added.window="if ($event.detail.shopId === {{ $shop->id }}) addingItem = false"
                         data-shop-shell
                         class="app-shop-card"
-                        style="{{ $this->shopColorStyle($shop) }}"
+                        style="{{ $this->shopHeaderStyle($shop) }}"
                     >
                         <div class="app-shop-header">
                             <div class="flex min-w-0 flex-1 items-center gap-2">
@@ -641,6 +667,37 @@ new #[Title('Llista de la compra')] class extends Component
             </div>
 
             <flux:input wire:model="shopName" :label="__('Nom')" :placeholder="__('Ex. Mercat central')" />
+
+            <div class="grid gap-2">
+                <label for="shop-color" class="text-sm font-medium text-zinc-800 dark:text-zinc-100">
+                    {{ __('Color de la capçalera') }}
+                </label>
+
+                <div class="flex flex-col gap-3 rounded-xl border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-950/45 sm:flex-row sm:items-center">
+                    <input
+                        id="shop-color"
+                        wire:model.live="shopColor"
+                        type="color"
+                        class="h-11 w-full cursor-pointer rounded-lg border border-zinc-200 bg-white p-1 sm:w-16 dark:border-zinc-700 dark:bg-zinc-900"
+                    >
+
+                    <div class="min-w-0 flex-1 space-y-1">
+                        <p class="text-sm font-medium text-zinc-800 dark:text-zinc-100">{{ \Illuminate\Support\Str::upper($shopColor) }}</p>
+                        <p class="text-xs text-zinc-500 dark:text-zinc-400">
+                            {{ __('Aquest color només s’aplicarà a la capçalera de la botiga.') }}
+                        </p>
+                    </div>
+
+                    <div
+                        class="h-11 w-full rounded-lg border border-zinc-200 dark:border-zinc-700 sm:w-32"
+                        style="background-image: linear-gradient(135deg, {{ $shopColor }}, #ffffff 55%, {{ $shopColor }});"
+                    ></div>
+                </div>
+
+                @error('color')
+                    <p class="text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                @enderror
+            </div>
 
             <div class="flex justify-end gap-2">
                 <flux:modal.close>

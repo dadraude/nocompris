@@ -23,6 +23,7 @@ class ShopFactory extends Factory
             'user_id' => User::factory(),
             'user_group_id' => null,
             'name' => fake()->company(),
+            'color' => '#d6d3d1',
             'position' => 1,
         ];
     }

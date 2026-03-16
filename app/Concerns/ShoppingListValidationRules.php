@@ -17,6 +17,7 @@ trait ShoppingListValidationRules
     {
         return [
             'name' => $this->itemNameRules(),
+            'color' => $this->shopColorRules(),
         ];
     }
 
@@ -52,6 +53,16 @@ trait ShoppingListValidationRules
     protected function quantityRules(): array
     {
         return ['required', 'integer', 'min:1'];
+    }
+
+    /**
+     * Get the validation rules used to validate a shop header color.
+     *
+     * @return array<int, Rule|array<mixed>|string>
+     */
+    protected function shopColorRules(): array
+    {
+        return ['required', 'string', 'regex:/^#[0-9a-fA-F]{6}$/'];
     }
 
     /**

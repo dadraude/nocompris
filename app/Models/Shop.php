@@ -23,6 +23,7 @@ class Shop extends Model
         'user_id',
         'user_group_id',
         'name',
+        'color',
         'position',
     ];
 

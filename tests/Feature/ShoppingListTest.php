@@ -78,6 +78,7 @@ test('shopping list renders compact layout hooks', function () {
     $user = User::factory()->create();
     $shop = Shop::factory()->for($user)->create([
         'name' => 'Mercat central',
+        'color' => '#c2410c',
         'position' => 1,
     ]);
 
@@ -97,7 +98,7 @@ test('shopping list renders compact layout hooks', function () {
         ->assertSee('data-shop-body', false)
         ->assertSee('data-shop-items', false)
         ->assertSee('app-shop-section', false)
-        ->assertSee('--shop-header-from:', false)
+        ->assertSee('--shop-header-from: rgba(194, 65, 12, 0.24)', false)
         ->assertSee('wire:sort="reorderShops"', false)
         ->assertSee('wire:sort:item="'.$shop->id.'"', false)
         ->assertSee('wire:sort="reorderItems('.$shop->id.', $item, $position)"', false);
@@ -119,6 +120,7 @@ test('user can create a shop shared with their group using the next position', f
     $response = Livewire::test('pages::shopping-list')
         ->call('startCreatingShop')
         ->set('shopName', 'Segona')
+        ->set('shopColor', '#16a34a')
         ->call('saveShop');
 
     $response->assertHasNoErrors();
@@ -128,6 +130,7 @@ test('user can create a shop shared with their group using the next position', f
     expect($shop)->not->toBeNull();
     expect($shop?->position)->toBe(2);
     expect($shop?->user_group_id)->toBe($group->id);
+    expect($shop?->color)->toBe('#16a34a');
 });
 
 test('master users can not create shops from the shopping list component', function () {
@@ -140,10 +143,11 @@ test('master users can not create shops from the shopping list component', funct
         ->assertForbidden();
 });
 
-test('user can rename a shop', function () {
+test('user can rename a shop and update its header color', function () {
     $user = User::factory()->create();
     $shop = Shop::factory()->for($user)->create([
         'name' => 'Botiga antiga',
+        'color' => '#d6d3d1',
         'position' => 1,
     ]);
 
@@ -152,11 +156,13 @@ test('user can rename a shop', function () {
     $response = Livewire::test('pages::shopping-list')
         ->call('startEditingShop', $shop->id)
         ->set('shopName', 'Botiga nova')
+        ->set('shopColor', '#0f766e')
         ->call('saveShop');
 
     $response->assertHasNoErrors();
 
     expect($shop->refresh()->name)->toBe('Botiga nova');
+    expect($shop->refresh()->color)->toBe('#0f766e');
 });
 
 test('user can delete a shop and its items', function () {
