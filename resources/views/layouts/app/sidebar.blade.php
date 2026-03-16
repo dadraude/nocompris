@@ -52,6 +52,18 @@
 
                     <flux:spacer />
 
+                    <flux:button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        icon="arrow-path"
+                        class="mr-1 rounded-full text-zinc-500 dark:text-zinc-300"
+                        x-on:click="window.location.reload()"
+                        aria-label="{{ __('Refresca la pàgina') }}"
+                        title="{{ __('Refresca la pàgina') }}"
+                        data-test="mobile-refresh-button"
+                    ></flux:button>
+
                     <flux:dropdown position="top" align="end">
                         <flux:profile
                             :initials="auth()->user()->initials()"

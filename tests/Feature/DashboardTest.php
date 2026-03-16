@@ -15,7 +15,10 @@ test('authenticated users can visit the dashboard', function () {
     $response
         ->assertOk()
         ->assertSee('NoCompris')
-        ->assertSee('Organitza la compra');
+        ->assertSee('Organitza la compra')
+        ->assertSee('data-test="mobile-refresh-button"', false)
+        ->assertSee('window.location.reload()', false)
+        ->assertSee('Refresca la pàgina');
 });
 
 test('master users are redirected from the dashboard to the master panel', function () {
