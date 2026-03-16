@@ -496,13 +496,7 @@ new #[Title('Llista de la compra')] class extends Component
                         <div x-show="expanded">
                             <div class="bg-zinc-50/45 px-3 py-3 dark:bg-zinc-950/20 sm:px-4 sm:pb-4">
                                 <div data-shop-body class="app-shop-section space-y-3">
-                                    <div class="flex flex-col gap-2 border-b border-zinc-200/70 pb-2 dark:border-zinc-700/70 sm:flex-row sm:items-center sm:justify-between">
-                                        <div class="space-y-1">
-                                            <p class="app-kicker">{{ __('Contingut de la botiga') }}</p>
-                                            <flux:text class="text-sm text-zinc-500 dark:text-zinc-400">
-                                                {{ __('Gestiona els productes i les quantitats sense perdre de vista la botiga.') }}
-                                            </flux:text>
-                                        </div>
+                                    <div class="flex items-center justify-end border-b border-zinc-200/70 pb-2 dark:border-zinc-700/70">
                                         <span class="app-shop-pill self-start sm:self-auto">
                                             {{ $shop->shoppingListItems->count() === 1
                                                 ? __('1 producte')
