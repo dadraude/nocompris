@@ -97,6 +97,7 @@ test('shopping list renders compact layout hooks', function () {
         ->assertSee('data-shop-body', false)
         ->assertSee('data-shop-items', false)
         ->assertSee('app-shop-section', false)
+        ->assertSee('--shop-header-from:', false)
         ->assertSee('wire:sort="reorderShops"', false)
         ->assertSee('wire:sort:item="'.$shop->id.'"', false)
         ->assertSee('wire:sort="reorderItems('.$shop->id.', $item, $position)"', false);

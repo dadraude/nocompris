@@ -73,15 +73,49 @@
     }
 
     .app-shop-card {
-        @apply overflow-hidden rounded-xl border border-zinc-200/80 bg-white/95 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-900/70 sm:rounded-2xl;
+        @apply overflow-hidden rounded-xl border shadow-sm sm:rounded-2xl;
+        border-color: var(--shop-border, var(--color-zinc-200));
+        background-color: var(--shop-surface, rgb(255 255 255 / 0.95));
+    }
+
+    .app-shop-header {
+        @apply flex flex-col gap-3 border-b px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-4;
+        border-color: var(--shop-border, var(--color-zinc-200));
+        background-image: linear-gradient(135deg, var(--shop-header-from, #fff), #fff 55%, var(--shop-header-to, #f5f5f5));
     }
 
     .app-shop-section {
-        @apply rounded-[1.25rem] border border-zinc-200/70 bg-zinc-50/85 p-3 dark:border-zinc-700/70 dark:bg-zinc-950/45;
+        @apply rounded-[1.25rem] border p-3;
+        border-color: var(--shop-border, var(--color-zinc-200));
+        background-color: var(--shop-section, var(--color-zinc-50));
     }
 
     .app-shop-pill {
-        @apply inline-flex items-center rounded-full border border-zinc-200/80 bg-white px-2.5 py-1 text-[0.68rem] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:border-zinc-700/80 dark:bg-zinc-900/90 dark:text-zinc-300;
+        @apply inline-flex items-center rounded-full border px-2.5 py-1 text-[0.68rem] font-medium uppercase tracking-[0.16em];
+        border-color: var(--shop-border, var(--color-zinc-200));
+        background-color: var(--shop-pill, rgb(255 255 255 / 0.95));
+        color: var(--shop-ink, var(--color-zinc-500));
+    }
+
+    .dark .app-shop-card {
+        border-color: var(--shop-dark-border, var(--color-zinc-700));
+        background-color: var(--shop-dark-surface, rgb(24 24 27 / 0.7));
+    }
+
+    .dark .app-shop-header {
+        border-color: var(--shop-dark-border, var(--color-zinc-700));
+        background-image: linear-gradient(135deg, var(--shop-dark-header-from, #18181b), #18181b 55%, var(--shop-dark-header-to, #27272a));
+    }
+
+    .dark .app-shop-section {
+        border-color: var(--shop-dark-border, var(--color-zinc-700));
+        background-color: var(--shop-dark-section, rgb(9 9 11 / 0.45));
+    }
+
+    .dark .app-shop-pill {
+        border-color: var(--shop-dark-border, var(--color-zinc-700));
+        background-color: var(--shop-dark-pill, rgb(24 24 27 / 0.9));
+        color: var(--shop-dark-ink, var(--color-zinc-300));
     }
 }
 

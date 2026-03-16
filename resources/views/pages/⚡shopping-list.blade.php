@@ -55,6 +55,34 @@ new #[Title('Llista de la compra')] class extends Component
     }
 
     /**
+     * Build a soft shop accent palette derived from the shop name.
+     */
+    public function shopColorStyle(Shop $shop): string
+    {
+        $palette = [18, 28, 42, 58, 84, 110, 138, 168, 192, 214, 236, 264, 292, 320];
+        $normalizedName = trim(mb_strtolower($shop->name));
+        $hash = (int) sprintf('%u', crc32($normalizedName === '' ? 'shop' : $normalizedName));
+        $hue = $palette[$hash % count($palette)];
+
+        return implode('; ', [
+            "--shop-surface: hsl({$hue} 34% 98%)",
+            "--shop-header-from: hsl({$hue} 38% 93%)",
+            "--shop-header-to: hsl({$hue} 32% 89%)",
+            "--shop-section: hsl({$hue} 26% 96%)",
+            "--shop-pill: hsl({$hue} 30% 97%)",
+            "--shop-border: hsl({$hue} 24% 82%)",
+            "--shop-ink: hsl({$hue} 18% 34%)",
+            "--shop-dark-surface: hsl({$hue} 18% 11%)",
+            "--shop-dark-header-from: hsl({$hue} 20% 21%)",
+            "--shop-dark-header-to: hsl({$hue} 18% 15%)",
+            "--shop-dark-section: hsl({$hue} 16% 14%)",
+            "--shop-dark-pill: hsl({$hue} 16% 19%)",
+            "--shop-dark-border: hsl({$hue} 16% 28%)",
+            "--shop-dark-ink: hsl({$hue} 24% 82%)",
+        ]).';';
+    }
+
+    /**
      * Prepare the modal to create a new shop.
      */
     public function startCreatingShop(): void
@@ -404,8 +432,9 @@ new #[Title('Llista de la compra')] class extends Component
                         x-on:item-added.window="if ($event.detail.shopId === {{ $shop->id }}) addingItem = false"
                         data-shop-shell
                         class="app-shop-card"
+                        style="{{ $this->shopColorStyle($shop) }}"
                     >
-                        <div class="flex flex-col gap-3 border-b border-zinc-200/70 bg-linear-to-br from-white via-zinc-50 to-stone-50 px-3 py-3 dark:border-zinc-700/70 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-4">
+                        <div class="app-shop-header">
                             <div class="flex min-w-0 flex-1 items-center gap-2">
                                 @can('reorder', $shop)
                                     <button
@@ -420,12 +449,9 @@ new #[Title('Llista de la compra')] class extends Component
 
                                 <button
                                     type="button"
-                                    class="flex min-w-0 flex-1 items-center gap-2 text-left"
+                                    class="flex min-w-0 flex-1 items-center gap-2 text-left sm:gap-3"
                                     x-on:click="expanded = ! expanded"
                                 >
-                                    <span class="flex size-9 items-center justify-center rounded-xl border border-zinc-200/80 bg-white text-sm font-semibold text-stone-700 shadow-sm dark:border-zinc-700/80 dark:bg-zinc-900 dark:text-zinc-100 sm:size-10">
-                                        {{ str($shop->name)->substr(0, 2)->upper() }}
-                                    </span>
                                     <span class="min-w-0 space-y-1">
                                         <flux:heading size="lg" class="truncate">{{ $shop->name }}</flux:heading>
                                         <div class="flex flex-wrap items-center gap-1.5">
