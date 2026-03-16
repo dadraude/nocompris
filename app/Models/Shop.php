@@ -52,6 +52,21 @@ class Shop extends Model
     }
 
     /**
+     * Determine whether the shop has visible pending items for the given user.
+     */
+    public function hasVisiblePendingItemsFor(User $user): bool
+    {
+        if (array_key_exists('visible_pending_items_count', $this->attributes)) {
+            return (int) $this->getAttribute('visible_pending_items_count') > 0;
+        }
+
+        return $this->shoppingListItems()
+            ->visibleTo($user)
+            ->where('purchased', false)
+            ->exists();
+    }
+
+    /**
      * Scope the query to shops visible to the given user.
      */
     public function scopeVisibleTo(Builder $query, User $user): Builder

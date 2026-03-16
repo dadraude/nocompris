@@ -84,6 +84,7 @@ test('shopping list renders compact layout hooks', function () {
 
     ShoppingListItem::factory()->for($shop)->for($user)->create([
         'name' => 'Pasta',
+        'purchased' => true,
         'position' => 1,
     ]);
 
@@ -92,16 +93,55 @@ test('shopping list renders compact layout hooks', function () {
     $this->get(route('dashboard'))
         ->assertSuccessful()
         ->assertSee('max-w-[90rem]', false)
-        ->assertSee("window.matchMedia('(min-width: 768px)').matches", false)
+        ->assertSee('x-data="{ expanded: false }"', false)
+        ->assertDontSee("window.matchMedia('(min-width: 768px)').matches", false)
         ->assertSee('rounded-xl', false)
         ->assertSee('data-shop-shell', false)
         ->assertSee('data-shop-body', false)
         ->assertSee('data-shop-items', false)
         ->assertSee('app-shop-section', false)
-        ->assertSee('--shop-header-from: rgba(194, 65, 12, 0.24)', false)
+        ->assertSee('--shop-header-bg: rgba(194, 65, 12, 0.46)', false)
         ->assertSee('wire:sort="reorderShops"', false)
         ->assertSee('wire:sort:item="'.$shop->id.'"', false)
-        ->assertSee('wire:sort="reorderItems('.$shop->id.', $item, $position)"', false);
+        ->assertSee('wire:sort="reorderItems('.$shop->id.', $item, $position)"', false)
+        ->assertSee('data-test="shop-primary-actions"', false)
+        ->assertSee('data-test="shop-secondary-actions"', false)
+        ->assertSee('data-test="add-item-button"', false)
+        ->assertSee('data-test="item-form-modal"', false)
+        ->assertDontSee('wire:model="newItemNames.', false)
+        ->assertSee('data-test="toggle-shop-content-button"', false)
+        ->assertSee('data-test="delete-shop-action"', false)
+        ->assertSee('data-test="delete-shop-button"', false)
+        ->assertSee('data-test="edit-shop-button"', false)
+        ->assertDontSee('Grup:', false)
+        ->assertSee('aria-label="Eliminar botiga"', false);
+});
+
+test('shop header shows the visible pending to total items ratio', function () {
+    $user = User::factory()->create();
+    $shop = Shop::factory()->for($user)->create([
+        'name' => 'Mercat central',
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($user)->create([
+        'name' => 'Pasta',
+        'purchased' => false,
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($user)->create([
+        'name' => 'Tomàquet',
+        'purchased' => true,
+        'position' => 2,
+    ]);
+
+    $this->actingAs($user);
+
+    $this->get(route('dashboard'))
+        ->assertSuccessful()
+        ->assertSeeInOrder(['1/2', 'Mercat central'])
+        ->assertDontSee('producte pendent');
 });
 
 test('user can create a shop shared with their group using the next position', function () {
@@ -172,6 +212,7 @@ test('user can delete a shop and its items', function () {
     ]);
 
     $item = ShoppingListItem::factory()->for($shop)->for($user)->create([
+        'purchased' => true,
         'position' => 1,
     ]);
 
@@ -185,6 +226,49 @@ test('user can delete a shop and its items', function () {
 
     expect($shop->fresh())->toBeNull();
     expect($item->fresh())->toBeNull();
+});
+
+test('user sees the delete action disabled for a shop with pending items', function () {
+    $user = User::factory()->create();
+    $shop = Shop::factory()->for($user)->create([
+        'name' => 'Mercat central',
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($user)->create([
+        'name' => 'Pasta',
+        'purchased' => false,
+        'position' => 1,
+    ]);
+
+    $this->actingAs($user);
+
+    $this->get(route('dashboard'))
+        ->assertSuccessful()
+        ->assertSee('data-test="delete-shop-button"', false)
+        ->assertSee('Primer has de marcar tots els productes com a comprats.', false);
+});
+
+test('user can not delete a shop with pending items', function () {
+    $user = User::factory()->create();
+    $shop = Shop::factory()->for($user)->create([
+        'position' => 1,
+    ]);
+
+    $item = ShoppingListItem::factory()->for($shop)->for($user)->create([
+        'purchased' => false,
+        'position' => 1,
+    ]);
+
+    $this->actingAs($user);
+
+    Livewire::test('pages::shopping-list')
+        ->set('deletingShopId', $shop->id)
+        ->call('deleteShop')
+        ->assertForbidden();
+
+    expect($shop->fresh())->not->toBeNull();
+    expect($item->fresh())->not->toBeNull();
 });
 
 test('user can add a private item with quantity and next position', function () {
@@ -204,10 +288,11 @@ test('user can add a private item with quantity and next position', function () 
     $this->actingAs($user);
 
     $response = Livewire::test('pages::shopping-list')
-        ->set("newItemNames.{$shop->id}", 'Pa')
-        ->set("newItemQuantities.{$shop->id}", 3)
-        ->set("newItemVisibilities.{$shop->id}", ShoppingListItemVisibility::Private->value)
-        ->call('addItem', $shop->id);
+        ->call('startAddingItem', $shop->id)
+        ->set('newItemName', 'Pa')
+        ->set('newItemQuantity', 3)
+        ->set('newItemVisibility', ShoppingListItemVisibility::Private->value)
+        ->call('addItem');
 
     $response->assertHasNoErrors();
 
@@ -218,6 +303,24 @@ test('user can add a private item with quantity and next position', function () 
     expect($item?->position)->toBe(2);
     expect($item?->visibility)->toBe(ShoppingListItemVisibility::Private);
     expect($item?->user_id)->toBe($user->id);
+});
+
+test('new item modal uses the selected shop header color', function () {
+    $user = User::factory()->create();
+    $shop = Shop::factory()->for($user)->create([
+        'name' => 'Mercat central',
+        'color' => '#c2410c',
+        'position' => 1,
+    ]);
+
+    $this->actingAs($user);
+
+    Livewire::test('pages::shopping-list')
+        ->call('startAddingItem', $shop->id)
+        ->assertSet('addingItemShopId', $shop->id)
+        ->assertSee('data-test="item-form-header"', false)
+        ->assertSee('Mercat central')
+        ->assertSee('--shop-header-bg: rgba(194, 65, 12, 0.46)', false);
 });
 
 test('group member can reorder visible shops with drag and drop', function () {

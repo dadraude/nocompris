@@ -16,8 +16,16 @@ test('authenticated users can visit the dashboard', function () {
         ->assertOk()
         ->assertSee('NoCompris')
         ->assertSee('Organitza la compra')
+        ->assertDontSee('Una llista simple per organitzar la compra compartida.')
         ->assertSee('data-test="mobile-refresh-button"', false)
-        ->assertSee('window.location.reload()', false)
+        ->assertSee('window.location.replace(window.location.href)', false)
+        ->assertSee('fixed inset-x-0 top-0 z-40', false)
+        ->assertSee('data-flux-sidebar-on-mobile:top-14!', false)
+        ->assertSee('data-flux-sidebar-on-mobile:bottom-0!', false)
+        ->assertSee('data-flux-sidebar-on-mobile:min-h-0!', false)
+        ->assertSee('lg:sticky lg:top-0 lg:max-h-dvh lg:overflow-y-auto lg:overscroll-contain', false)
+        ->assertSee('hidden lg:block', false)
+        ->assertSee('pt-14 lg:pt-0', false)
         ->assertSee('Refresca la pàgina');
 });
 

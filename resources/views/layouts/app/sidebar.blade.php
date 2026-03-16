@@ -5,7 +5,7 @@
     </head>
     <body class="min-h-screen bg-stone-50 dark:bg-zinc-950">
         <div class="min-h-screen lg:flex">
-            <flux:sidebar sticky collapsible="mobile" class="border-e border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
+            <flux:sidebar collapsible="mobile" class="data-flux-sidebar-on-mobile:top-14! data-flux-sidebar-on-mobile:bottom-0! data-flux-sidebar-on-mobile:min-h-0! data-flux-sidebar-on-mobile:max-h-none! border-e border-zinc-200 bg-white lg:sticky lg:top-0 lg:max-h-dvh lg:overflow-y-auto lg:overscroll-contain dark:border-zinc-800 dark:bg-zinc-950">
                 <flux:sidebar.header class="border-b border-zinc-200 px-2.5 py-2.5 dark:border-zinc-800 lg:px-3 lg:py-3">
                     <x-app-logo :sidebar="true" href="{{ route('dashboard') }}" wire:navigate />
                     <flux:sidebar.collapse class="lg:hidden" />
@@ -26,21 +26,21 @@
                     </flux:sidebar.group>
                 </flux:sidebar.nav>
 
-                <flux:spacer />
+                <flux:spacer class="hidden lg:block" />
 
-                <div class="px-2.5 pb-2.5 lg:px-3 lg:pb-3">
-                    <div class="rounded-xl border border-zinc-200 bg-zinc-50 px-2.5 py-2 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
-                        {{ auth()->user()->is_master
-                            ? __('Aquest perfil només gestiona usuaris i grups.')
-                            : __('Una llista simple per organitzar la compra compartida.') }}
-                    </div>
+                <div class="hidden px-2.5 pb-2.5 lg:block lg:px-3 lg:pb-3">
+                    @if (auth()->user()->is_master)
+                        <div class="rounded-xl border border-zinc-200 bg-zinc-50 px-2.5 py-2 text-sm text-zinc-600 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-300">
+                            {{ __('Aquest perfil només gestiona usuaris i grups.') }}
+                        </div>
+                    @endif
 
-                    <x-desktop-user-menu class="mt-2 hidden lg:block" :name="auth()->user()->name" />
+                    <x-desktop-user-menu class="{{ auth()->user()->is_master ? 'mt-2 hidden lg:block' : 'hidden lg:block' }}" :name="auth()->user()->name" />
                 </div>
             </flux:sidebar>
 
             <div class="relative flex min-h-screen flex-1 flex-col">
-                <flux:header class="border-b border-zinc-200 bg-white px-2.5 py-2 lg:hidden dark:border-zinc-800 dark:bg-zinc-950">
+                <flux:header class="fixed inset-x-0 top-0 z-40 min-h-14 border-b border-zinc-200 bg-white px-2.5 py-2 lg:hidden dark:border-zinc-800 dark:bg-zinc-950">
                     <flux:sidebar.toggle class="lg:hidden" icon="bars-2" inset="left" />
 
                     <div class="ml-2 min-w-0">
@@ -52,17 +52,16 @@
 
                     <flux:spacer />
 
-                    <flux:button
+                    <button
                         type="button"
-                        variant="ghost"
-                        size="sm"
-                        icon="arrow-path"
-                        class="mr-1 rounded-full text-zinc-500 dark:text-zinc-300"
-                        x-on:click="window.location.reload()"
+                        class="mr-1 inline-flex size-8 items-center justify-center rounded-md text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-800 dark:text-zinc-300 dark:hover:bg-white/15 dark:hover:text-white"
+                        onclick="window.location.replace(window.location.href)"
                         aria-label="{{ __('Refresca la pàgina') }}"
                         title="{{ __('Refresca la pàgina') }}"
                         data-test="mobile-refresh-button"
-                    ></flux:button>
+                    >
+                        <flux:icon icon="arrow-path" class="size-4" />
+                    </button>
 
                     <flux:dropdown position="top" align="end">
                         <flux:profile
@@ -118,7 +117,7 @@
                     </flux:dropdown>
                 </flux:header>
 
-                <div class="relative flex-1">
+                <div class="relative flex-1 pt-14 lg:pt-0">
                     {{ $slot }}
                 </div>
             </div>

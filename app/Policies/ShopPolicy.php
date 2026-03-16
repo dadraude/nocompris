@@ -52,7 +52,8 @@ class ShopPolicy
      */
     public function delete(User $user, Shop $shop): bool
     {
-        return $shop->user_id === $user->id;
+        return $shop->user_id === $user->id
+            && ! $shop->hasVisiblePendingItemsFor($user);
     }
 
     /**
