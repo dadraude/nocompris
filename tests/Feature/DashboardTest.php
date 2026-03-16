@@ -16,6 +16,7 @@ test('authenticated users can visit the dashboard', function () {
         ->assertOk()
         ->assertSee('NoCompris')
         ->assertSee('Organitza la compra')
+        ->assertSee('Llistat complet')
         ->assertDontSee('Una llista simple per organitzar la compra compartida.')
         ->assertSee('data-test="mobile-refresh-button"', false)
         ->assertSee('window.location.replace(window.location.href)', false)

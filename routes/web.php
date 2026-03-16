@@ -28,6 +28,9 @@ Route::middleware(['auth', 'verified'])->group(function () {
     Route::livewire('dashboard', 'pages::shopping-list')
         ->middleware(EnsureNotMaster::class)
         ->name('dashboard');
+    Route::livewire('full-shopping-list', 'pages::full-shopping-list')
+        ->middleware(EnsureNotMaster::class)
+        ->name('shopping-list.full');
     Route::livewire('master', 'pages::master-access')
         ->middleware(EnsureMaster::class)
         ->name('master.index');

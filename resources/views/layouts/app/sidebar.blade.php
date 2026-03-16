@@ -17,6 +17,9 @@
                             <flux:sidebar.item class="rounded-2xl" icon="home" :href="route('dashboard')" :current="request()->routeIs('dashboard')" wire:navigate>
                                 {{ __('Llista de la compra') }}
                             </flux:sidebar.item>
+                            <flux:sidebar.item class="rounded-2xl" icon="list-bullet" :href="route('shopping-list.full')" :current="request()->routeIs('shopping-list.full')" wire:navigate>
+                                {{ __('Llistat complet') }}
+                            </flux:sidebar.item>
                         @endif
                         @if (auth()->user()->is_master)
                             <flux:sidebar.item class="rounded-2xl" icon="users" :href="route('master.index')" :current="request()->routeIs('master.index')" wire:navigate>
@@ -89,6 +92,14 @@
                             <flux:menu.separator />
 
                             <flux:menu.radio.group>
+                                @if (! auth()->user()->is_master)
+                                    <flux:menu.item :href="route('dashboard')" icon="home" wire:navigate>
+                                        {{ __('Llista de la compra') }}
+                                    </flux:menu.item>
+                                    <flux:menu.item :href="route('shopping-list.full')" icon="list-bullet" wire:navigate>
+                                        {{ __('Llistat complet') }}
+                                    </flux:menu.item>
+                                @endif
                                 @if (auth()->user()->is_master)
                                     <flux:menu.item :href="route('master.index')" icon="users" wire:navigate>
                                         {{ __('Usuaris i grups') }}
