@@ -100,21 +100,26 @@ test('shopping list renders compact layout hooks', function () {
         ->assertSee('data-shop-body', false)
         ->assertSee('data-shop-items', false)
         ->assertSee('app-shop-section', false)
-        ->assertSee('--shop-header-bg: rgba(194, 65, 12, 0.46)', false)
+        ->assertSee('app-shop-header-pill', false)
+        ->assertSee('--shop-header-bg: rgb(194, 65, 12)', false)
         ->assertSee('wire:sort="reorderShops"', false)
         ->assertSee('wire:sort:item="'.$shop->id.'"', false)
-        ->assertSee('wire:sort="reorderItems('.$shop->id.', $item, $position)"', false)
+        ->assertSee('wire:sort="reorderItems"', false)
+        ->assertDontSee('wire:sort="reorderItems('.$shop->id.', $item, $position)"', false)
         ->assertSee('data-test="shop-primary-actions"', false)
-        ->assertSee('data-test="shop-secondary-actions"', false)
         ->assertSee('data-test="add-item-button"', false)
+        ->assertSee('data-test="item-edit-button"', false)
+        ->assertSee('data-test="item-quantity-text"', false)
+        ->assertDontSee('data-test="item-quantity-input"', false)
+        ->assertDontSee('app-shop-item-quantity', false)
         ->assertSee('data-test="item-form-modal"', false)
         ->assertDontSee('wire:model="newItemNames.', false)
-        ->assertSee('data-test="toggle-shop-content-button"', false)
-        ->assertSee('data-test="delete-shop-action"', false)
-        ->assertSee('data-test="delete-shop-button"', false)
+        ->assertSee('data-test="edit-shop-action"', false)
+        ->assertSee('app-shop-icon-button', false)
         ->assertSee('data-test="edit-shop-button"', false)
+        ->assertDontSee('data-test="delete-shop-button"', false)
         ->assertDontSee('Grup:', false)
-        ->assertSee('aria-label="Eliminar botiga"', false);
+        ->assertSee('aria-label="Edita la botiga"', false);
 });
 
 test('shop header shows the visible pending to total items ratio', function () {
@@ -228,7 +233,7 @@ test('user can delete a shop and its items', function () {
     expect($item->fresh())->toBeNull();
 });
 
-test('user sees the delete action disabled for a shop with pending items', function () {
+test('user sees the delete action disabled in the edit modal for a shop with pending items', function () {
     $user = User::factory()->create();
     $shop = Shop::factory()->for($user)->create([
         'name' => 'Mercat central',
@@ -243,9 +248,11 @@ test('user sees the delete action disabled for a shop with pending items', funct
 
     $this->actingAs($user);
 
-    $this->get(route('dashboard'))
-        ->assertSuccessful()
+    Livewire::test('pages::shopping-list')
+        ->call('startEditingShop', $shop->id)
+        ->assertSee('data-test="delete-shop-action"', false)
         ->assertSee('data-test="delete-shop-button"', false)
+        ->assertSee('data-test="delete-shop-disabled-icon"', false)
         ->assertSee('Primer has de marcar tots els productes com a comprats.', false);
 });
 
@@ -319,8 +326,10 @@ test('new item modal uses the selected shop header color', function () {
         ->call('startAddingItem', $shop->id)
         ->assertSet('addingItemShopId', $shop->id)
         ->assertSee('data-test="item-form-header"', false)
+        ->assertSee('data-test="item-form-shop-pill"', false)
+        ->assertSee('app-shop-pill', false)
         ->assertSee('Mercat central')
-        ->assertSee('--shop-header-bg: rgba(194, 65, 12, 0.46)', false);
+        ->assertSee('--shop-header-bg: rgb(194, 65, 12)', false);
 });
 
 test('group member can reorder visible shops with drag and drop', function () {
@@ -387,7 +396,7 @@ test('group member can reorder visible public items without touching hidden priv
     $this->actingAs($user);
 
     $response = Livewire::test('pages::shopping-list')
-        ->call('reorderItems', $shop->id, $secondPublicItem->id, 0);
+        ->call('reorderItems', $secondPublicItem->id, 0);
 
     $response->assertHasNoErrors();
 
@@ -396,7 +405,27 @@ test('group member can reorder visible public items without touching hidden priv
     expect($firstPublicItem->refresh()->position)->toBe(3);
 });
 
-test('group member can update a public item quantity', function () {
+test('reordering items ignores empty sort payloads', function () {
+    $user = User::factory()->create();
+    $shop = Shop::factory()->for($user)->create([
+        'position' => 1,
+    ]);
+
+    $item = ShoppingListItem::factory()->for($shop)->for($user)->create([
+        'position' => 1,
+    ]);
+
+    $this->actingAs($user);
+
+    $response = Livewire::test('pages::shopping-list')
+        ->call('reorderItems', null, 0);
+
+    $response->assertHasNoErrors();
+
+    expect($item->refresh()->position)->toBe(1);
+});
+
+test('group member can edit a public item name and quantity from the modal', function () {
     $group = UserGroup::factory()->create();
     $owner = User::factory()->inGroup($group)->create();
     $user = User::factory()->inGroup($group)->create();
@@ -414,10 +443,18 @@ test('group member can update a public item quantity', function () {
     $this->actingAs($user);
 
     $response = Livewire::test('pages::shopping-list')
-        ->call('updateItemQuantity', $item->id, 5);
+        ->call('startEditingItem', $item->id)
+        ->assertSet('editingItemId', $item->id)
+        ->assertSet('addingItemShopId', $shop->id)
+        ->assertSet('newItemName', $item->name)
+        ->assertSet('newItemQuantity', 1)
+        ->set('newItemName', 'Farina integral')
+        ->set('newItemQuantity', 5)
+        ->call('saveItem');
 
     $response->assertHasNoErrors();
 
+    expect($item->refresh()->name)->toBe('Farina integral');
     expect($item->refresh()->quantity)->toBe(5);
 });
 

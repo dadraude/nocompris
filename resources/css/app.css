@@ -78,19 +78,35 @@
 
     .app-shop-header {
         @apply flex flex-col gap-3 border-b border-zinc-200 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-4 dark:border-zinc-700;
-        background-color: var(--shop-header-bg, rgba(214, 211, 209, 0.46));
+        background-color: var(--shop-header-bg, #d6d3d1);
     }
 
     .app-shop-section {
-        @apply rounded-[1.25rem] border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-700 dark:bg-zinc-950/45;
+        @apply rounded-[1.25rem] border border-zinc-200 bg-zinc-50 p-2.5 dark:border-zinc-700 dark:bg-zinc-950/45 sm:p-3;
     }
 
     .app-shop-pill {
         @apply inline-flex items-center rounded-full border border-zinc-200 bg-white/90 px-2.5 py-1 text-[0.68rem] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:border-zinc-700 dark:bg-zinc-900/85 dark:text-zinc-300;
     }
 
+    .app-shop-header-pill {
+        @apply flex w-full min-w-0 items-center gap-2 rounded-[1.1rem] px-2 py-1.5 normal-case tracking-normal text-zinc-900 dark:text-zinc-50 sm:gap-3 sm:px-3;
+    }
+
+    .app-shop-item {
+        @apply items-center rounded-lg border px-2.5 py-2 shadow-xs;
+    }
+
+    .app-shop-icon-button {
+        @apply rounded-xl border border-zinc-200 bg-white/92 text-zinc-700 shadow-sm hover:bg-white dark:border-zinc-700 dark:bg-zinc-950/82 dark:text-zinc-200 dark:hover:bg-zinc-950;
+    }
+
+    .app-shop-icon-button:disabled {
+        @apply opacity-65;
+    }
+
     .dark .app-shop-header {
-        background-color: var(--shop-dark-header-bg, rgba(214, 211, 209, 0.34));
+        background-color: var(--shop-dark-header-bg, #d6d3d1);
     }
 }
 

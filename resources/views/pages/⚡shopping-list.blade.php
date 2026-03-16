@@ -27,6 +27,8 @@ new #[Title('Llista de la compra')] class extends Component
 
     public ?int $addingItemShopId = null;
 
+    public ?int $editingItemId = null;
+
     public string $shopName = '';
 
     public string $shopColor = self::DEFAULT_SHOP_COLOR;
@@ -64,6 +66,19 @@ new #[Title('Llista de la compra')] class extends Component
     }
 
     /**
+     * Get the shop currently being edited, if available.
+     */
+    #[Computed]
+    public function editingShop(): ?Shop
+    {
+        if ($this->editingShopId === null) {
+            return null;
+        }
+
+        return $this->shops->firstWhere('id', $this->editingShopId);
+    }
+
+    /**
      * Build the CSS variables used by the shop header accent.
      */
     public function shopHeaderStyle(Shop $shop): string
@@ -71,8 +86,8 @@ new #[Title('Llista de la compra')] class extends Component
         [$red, $green, $blue] = $this->rgbChannelsFromHex($shop->color);
 
         return implode('; ', [
-            "--shop-header-bg: rgba({$red}, {$green}, {$blue}, 0.46)",
-            "--shop-dark-header-bg: rgba({$red}, {$green}, {$blue}, 0.34)",
+            "--shop-header-bg: rgb({$red}, {$green}, {$blue})",
+            "--shop-dark-header-bg: rgb({$red}, {$green}, {$blue})",
         ]).';';
     }
 
@@ -179,10 +194,54 @@ new #[Title('Llista de la compra')] class extends Component
     }
 
     /**
-     * Create a new item for the selected shop.
+     * Prepare the modal to update an existing item.
      */
-    public function addItem(): void
+    public function startEditingItem(int $itemId): void
     {
+        $item = $this->findItem($itemId);
+
+        $this->authorize('update', $item);
+
+        $this->resetItemForm();
+        $this->editingItemId = $item->id;
+        $this->addingItemShopId = $item->shop_id;
+        $this->newItemName = $item->name;
+        $this->newItemQuantity = $item->quantity;
+        $this->newItemVisibility = $item->visibility->value;
+    }
+
+    /**
+     * Persist a new or existing item.
+     */
+    public function saveItem(): void
+    {
+        if ($this->editingItemId !== null) {
+            $item = $this->findItem($this->editingItemId);
+
+            $this->authorize('update', $item);
+
+            $validated = Validator::make(
+                [
+                    'name' => $this->newItemName,
+                    'quantity' => $this->newItemQuantity,
+                ],
+                [
+                    'name' => $this->itemNameRules(),
+                    'quantity' => $this->quantityRules(),
+                ],
+                [],
+                ['name' => 'producte', 'quantity' => 'quantitat'],
+            )->validate();
+
+            $item->update($validated);
+
+            $this->resetItemForm();
+            $this->modal('item-form')->close();
+            $this->dispatch('item-updated');
+
+            return;
+        }
+
         $shop = $this->findShop((int) $this->addingItemShopId);
 
         $this->authorize('create', [ShoppingListItem::class, $shop]);
@@ -207,6 +266,14 @@ new #[Title('Llista de la compra')] class extends Component
         $this->resetItemForm();
         $this->modal('item-form')->close();
         $this->dispatch('item-added', shopId: $shop->id);
+    }
+
+    /**
+     * Create a new item for the selected shop.
+     */
+    public function addItem(): void
+    {
+        $this->saveItem();
     }
 
     /**
@@ -263,14 +330,19 @@ new #[Title('Llista de la compra')] class extends Component
     /**
      * Persist a new order for the visible items in a shop.
      */
-    public function reorderItems(int $shopId, int $itemId, int $position): void
+    public function reorderItems(?int $itemId, ?int $position): void
     {
-        $shop = $this->findShop($shopId);
+        if ($itemId === null || $position === null) {
+            return;
+        }
+
+        $item = $this->findItem($itemId);
+        $shop = $this->findShop($item->shop_id);
         $visibleItems = $shop->shoppingListItems()
             ->visibleTo(Auth::user())
             ->with('user')
             ->get();
-        $item = $visibleItems->firstWhere('id', $itemId) ?? $this->findItem($itemId);
+        $item = $visibleItems->firstWhere('id', $itemId) ?? $item;
 
         $this->authorize('reorder', $item);
 
@@ -360,6 +432,7 @@ new #[Title('Llista de la compra')] class extends Component
     protected function resetItemForm(): void
     {
         $this->resetValidation();
+        $this->editingItemId = null;
         $this->addingItemShopId = null;
         $this->newItemName = '';
         $this->newItemQuantity = 1;
@@ -502,62 +575,56 @@ new #[Title('Llista de la compra')] class extends Component
                                     class="flex min-w-0 flex-1 items-center gap-2 pe-10 text-left sm:gap-3"
                                     x-on:click="expanded = ! expanded"
                                 >
-                                    <span class="flex min-w-0 items-center gap-2 sm:gap-3">
-                                        <span class="app-shop-pill shrink-0">
-                                            {{ $shop->visible_pending_items_count }}/{{ $shop->shoppingListItems->count() }}
+                                    <span class="flex min-w-0 flex-1 items-center">
+                                        <span class="app-shop-pill app-shop-header-pill">
+                                            <span class="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-sm font-semibold text-zinc-700 dark:bg-zinc-800/80 dark:text-zinc-100">
+                                                {{ $shop->visible_pending_items_count }}/{{ $shop->shoppingListItems->count() }}
+                                            </span>
+                                            <span class="min-w-0 truncate text-lg font-semibold leading-tight text-zinc-950 dark:text-zinc-50 sm:text-xl">
+                                                {{ $shop->name }}
+                                            </span>
                                         </span>
-                                        <flux:heading size="lg" class="truncate">{{ $shop->name }}</flux:heading>
                                     </span>
                                 </button>
                             </div>
 
                             <div class="absolute right-3 top-3 sm:right-4 sm:top-4">
-                                @if ($shop->user_id === Auth::id())
-                                    <div data-test="delete-shop-action">
-                                        @if (Auth::user()->can('delete', $shop))
-                                            <flux:modal.trigger name="delete-shop">
-                                                <flux:button
-                                                    variant="subtle"
-                                                    size="sm"
-                                                    icon="trash"
-                                                    aria-label="{{ __('Eliminar botiga') }}"
-                                                    data-test="delete-shop-button"
-                                                    wire:click="confirmDeletingShop({{ $shop->id }})"
-                                                ></flux:button>
-                                            </flux:modal.trigger>
-                                        @else
+                                @can('update', $shop)
+                                    <div data-test="edit-shop-action">
+                                        <flux:modal.trigger name="shop-form">
                                             <flux:button
-                                                variant="subtle"
+                                                variant="outline"
                                                 size="sm"
-                                                icon="trash"
-                                                aria-label="{{ __('Eliminar botiga') }}"
-                                                data-test="delete-shop-button"
-                                                title="{{ __('Primer has de marcar tots els productes com a comprats.') }}"
-                                                disabled
+                                                icon="pencil-square"
+                                                class="app-shop-icon-button"
+                                                aria-label="{{ __('Edita la botiga') }}"
+                                                data-test="edit-shop-button"
+                                                wire:click="startEditingShop({{ $shop->id }})"
                                             ></flux:button>
-                                        @endif
+                                        </flux:modal.trigger>
                                     </div>
-                                @endif
+                                @endcan
                             </div>
                         </div>
 
                         <div x-show="expanded">
                             <div class="bg-zinc-50/45 px-3 py-3 dark:bg-zinc-950/20 sm:px-4 sm:pb-4">
-                                <div data-shop-body class="app-shop-section space-y-3">
-                                    <div class="flex items-center justify-end border-b border-zinc-200/70 pb-2 dark:border-zinc-700/70">
-                                        <span class="app-shop-pill self-start sm:self-auto">
+                                <div data-shop-body class="app-shop-section space-y-2.5">
+                                    <div
+                                        class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200/70 pb-2 dark:border-zinc-700/70 sm:flex-nowrap"
+                                        data-test="shop-primary-actions"
+                                    >
+                                        <span class="app-shop-pill shrink-0">
                                             {{ $shop->shoppingListItems->count() === 1
                                                 ? __('1 producte')
                                                 : __(':count productes', ['count' => $shop->shoppingListItems->count()]) }}
                                         </span>
-                                    </div>
-
-                                    <div class="flex flex-wrap items-center justify-start gap-2" data-test="shop-primary-actions">
                                         @can('create', [\App\Models\ShoppingListItem::class, $shop])
                                             <flux:modal.trigger name="item-form">
                                                 <flux:button
                                                     variant="ghost"
                                                     size="sm"
+                                                    class="shrink-0"
                                                     data-test="add-item-button"
                                                     wire:click="startAddingItem({{ $shop->id }})"
                                                 >
@@ -574,7 +641,7 @@ new #[Title('Llista de la compra')] class extends Component
                                             </flux:text>
                                         </div>
                                     @else
-                                        <div data-shop-items class="space-y-1.5" wire:sort="reorderItems({{ $shop->id }}, $item, $position)">
+                                        <div data-shop-items class="space-y-1.5" wire:sort="reorderItems">
                                             @foreach ($shop->shoppingListItems as $item)
                                                 <div
                                                     wire:key="item-{{ $item->id }}"
@@ -583,7 +650,7 @@ new #[Title('Llista de la compra')] class extends Component
                                                     :class="purchased
                                                         ? 'border-emerald-200/80 bg-emerald-50/70 dark:border-emerald-900/70 dark:bg-emerald-950/20'
                                                         : 'border-zinc-200/80 bg-white/75 dark:border-zinc-700/70 dark:bg-zinc-950/25'"
-                                                    class="grid grid-cols-[auto_auto_minmax(0,1fr)] gap-2 rounded-lg border px-2.5 py-2 sm:grid-cols-[auto_auto_minmax(0,1fr)_7.5rem] sm:items-center"
+                                                    class="app-shop-item flex gap-2.5"
                                                 >
                                                     @can('reorder', $item)
                                                         <button
@@ -598,42 +665,65 @@ new #[Title('Llista de la compra')] class extends Component
                                                         <span class="size-8 shrink-0"></span>
                                                     @endif
 
-                                                    <label class="flex cursor-pointer items-start pt-0.5">
+                                                    <label class="flex cursor-pointer items-center">
                                                         <input
                                                             type="checkbox"
-                                                            class="mt-0.5 size-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500 dark:border-zinc-600 dark:bg-zinc-900"
+                                                            class="size-4 rounded border-zinc-300 text-emerald-600 focus:ring-emerald-500 dark:border-zinc-600 dark:bg-zinc-900"
                                                             :checked="purchased"
                                                             x-on:change="purchased = ! purchased; $wire.togglePurchased({{ $item->id }})"
                                                         >
                                                     </label>
 
-                                                    <div class="space-y-1">
-                                                        <p
-                                                            :class="purchased
-                                                                ? 'text-zinc-400 line-through dark:text-zinc-500'
-                                                                : 'text-zinc-900 dark:text-zinc-50'"
-                                                            class="font-medium leading-tight"
-                                                        >
-                                                            {{ $item->name }}
-                                                        </p>
-                                                        <div class="flex flex-wrap items-center gap-1.5 text-[0.8rem] text-zinc-500 dark:text-zinc-400">
-                                                            <span class="rounded-full bg-zinc-100 px-2 py-0.5 text-[0.68rem] font-medium uppercase tracking-[0.14em] text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300">
-                                                                {{ $item->visibility === \App\ShoppingListItemVisibility::Public ? __('Públic') : __('Privat') }}
-                                                            </span>
-                                                            <span class="hidden text-[0.68rem] uppercase tracking-[0.14em] text-zinc-400 dark:text-zinc-500 md:inline">
-                                                                {{ __('Creat per :name', ['name' => $item->user->name]) }}
-                                                            </span>
-                                                        </div>
-                                                    </div>
+                                                    <div class="flex min-w-0 flex-1 items-center gap-2.5">
+                                                        @can('update', $item)
+                                                            <flux:modal.trigger name="item-form" class="min-w-0 flex-1">
+                                                                <button
+                                                                    type="button"
+                                                                    class="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-1 py-1 text-left transition hover:bg-zinc-100/75 dark:hover:bg-zinc-800/50"
+                                                                    data-test="item-edit-button"
+                                                                    aria-label="{{ __('Edita el producte :item', ['item' => $item->name]) }}"
+                                                                    wire:click="startEditingItem({{ $item->id }})"
+                                                                >
+                                                                    <span
+                                                                        data-test="item-quantity-text"
+                                                                        class="shrink-0 text-sm font-semibold text-zinc-500 dark:text-zinc-400"
+                                                                    >
+                                                                        {{ $item->quantity }}
+                                                                    </span>
 
-                                                    <div class="col-span-3 sm:col-span-1">
-                                                        <flux:input
-                                                            :label="__('Qtat.')"
-                                                            type="number"
-                                                            min="1"
-                                                            :value="$item->quantity"
-                                                            wire:change="updateItemQuantity({{ $item->id }}, $event.target.value)"
-                                                        />
+                                                                    <p
+                                                                        :class="purchased
+                                                                            ? 'text-zinc-400 line-through dark:text-zinc-500'
+                                                                            : 'text-zinc-900 dark:text-zinc-50'"
+                                                                        class="min-w-0 flex-1 truncate font-medium leading-tight"
+                                                                    >
+                                                                        {{ $item->name }}
+                                                                    </p>
+                                                                </button>
+                                                            </flux:modal.trigger>
+                                                        @else
+                                                            <div class="flex min-w-0 flex-1 items-center gap-2.5">
+                                                                <span
+                                                                    data-test="item-quantity-text"
+                                                                    class="shrink-0 text-sm font-semibold text-zinc-500 dark:text-zinc-400"
+                                                                >
+                                                                    {{ $item->quantity }}
+                                                                </span>
+
+                                                                <p
+                                                                    :class="purchased
+                                                                        ? 'text-zinc-400 line-through dark:text-zinc-500'
+                                                                        : 'text-zinc-900 dark:text-zinc-50'"
+                                                                    class="min-w-0 flex-1 truncate font-medium leading-tight"
+                                                                >
+                                                                    {{ $item->name }}
+                                                                </p>
+                                                            </div>
+                                                        @endcan
+
+                                                        <span class="hidden rounded-full bg-zinc-100 px-2 py-0.5 text-[0.68rem] font-medium uppercase tracking-[0.14em] text-zinc-500 dark:bg-zinc-800 dark:text-zinc-300 sm:inline-flex">
+                                                            {{ $item->visibility === \App\ShoppingListItemVisibility::Public ? __('Públic') : __('Privat') }}
+                                                        </span>
                                                     </div>
                                                 </div>
                                             @endforeach
@@ -644,32 +734,6 @@ new #[Title('Llista de la compra')] class extends Component
                             </div>
                         </div>
 
-                        <div class="flex items-center justify-between gap-2 border-t border-zinc-200/70 bg-white/70 px-3 py-2.5 dark:border-zinc-700/70 dark:bg-zinc-950/20 sm:px-4" data-test="shop-secondary-actions">
-                            <flux:button
-                                variant="ghost"
-                                size="sm"
-                                icon="list-bullet"
-                                data-test="toggle-shop-content-button"
-                                x-on:click="expanded = ! expanded"
-                            >
-                                <span x-show="! expanded">{{ __('Mostra contingut') }}</span>
-                                <span x-show="expanded">{{ __('Amaga contingut') }}</span>
-                            </flux:button>
-
-                            @can('update', $shop)
-                                <flux:modal.trigger name="shop-form">
-                                    <flux:button
-                                        variant="subtle"
-                                        size="sm"
-                                        icon="pencil-square"
-                                        data-test="edit-shop-button"
-                                        wire:click="startEditingShop({{ $shop->id }})"
-                                    >
-                                        {{ __('Editar') }}
-                                    </flux:button>
-                                </flux:modal.trigger>
-                            @endcan
-                        </div>
                     </article>
                 @endforeach
             </div>
@@ -720,7 +784,45 @@ new #[Title('Llista de la compra')] class extends Component
                 @enderror
             </div>
 
-            <div class="flex justify-end gap-2">
+            <div class="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+                @if ($editingShopId !== null && $this->editingShop?->user_id === Auth::id())
+                    <div data-test="delete-shop-action">
+                        @if (Auth::user()->can('delete', $this->editingShop))
+                            <flux:modal.trigger name="delete-shop">
+                                <flux:button
+                                    variant="danger"
+                                    icon="trash"
+                                    data-test="delete-shop-button"
+                                    wire:click="confirmDeletingShop({{ $this->editingShop->id }})"
+                                >
+                                    {{ __('Eliminar botiga') }}
+                                </flux:button>
+                            </flux:modal.trigger>
+                        @else
+                            <flux:button
+                                variant="danger"
+                                data-test="delete-shop-button"
+                                title="{{ __('Primer has de marcar tots els productes com a comprats.') }}"
+                                disabled
+                            >
+                                <span
+                                    data-test="delete-shop-disabled-icon"
+                                    aria-hidden="true"
+                                    class="relative inline-flex size-4 items-center justify-center"
+                                >
+                                    <flux:icon.trash class="size-4" />
+                                    <flux:icon.slash class="absolute inset-0 m-auto size-4 stroke-[2.25]" />
+                                </span>
+
+                                <span>{{ __('Eliminar botiga') }}</span>
+                            </flux:button>
+                        @endif
+                    </div>
+                @else
+                    <span></span>
+                @endif
+
+                <div class="flex justify-end gap-2">
                 <flux:modal.close>
                     <flux:button variant="filled">{{ __('Cancel·la') }}</flux:button>
                 </flux:modal.close>
@@ -728,12 +830,13 @@ new #[Title('Llista de la compra')] class extends Component
                 <flux:button variant="primary" type="submit">
                     {{ $editingShopId === null ? __('Crea botiga') : __('Desa canvis') }}
                 </flux:button>
+                </div>
             </div>
         </form>
     </flux:modal>
 
     <flux:modal name="item-form" class="max-w-lg">
-        <form wire:submit="addItem" class="space-y-4" data-test="item-form-modal">
+        <form wire:submit="saveItem" class="space-y-4" data-test="item-form-modal">
             @php($itemShop = $this->shops->firstWhere('id', $addingItemShopId))
 
             <div
@@ -742,10 +845,20 @@ new #[Title('Llista de la compra')] class extends Component
                 @if ($itemShop) style="{{ $this->shopHeaderStyle($itemShop) }}" @endif
             >
                 <div class="space-y-2">
-                    <flux:heading size="lg">{{ __('Nou producte') }}</flux:heading>
-                    <flux:text class="text-zinc-500 dark:text-zinc-400">
-                        {{ $itemShop?->name ?? __('Sense seleccionar') }}
-                    </flux:text>
+                    <flux:heading size="lg">
+                        {{ $editingItemId === null ? __('Nou producte') : __('Edita el producte') }}
+                    </flux:heading>
+                    <span
+                        data-test="item-form-shop-pill"
+                        @class([
+                            'app-shop-pill inline-flex max-w-full normal-case tracking-normal text-zinc-800 dark:text-zinc-100',
+                            'text-zinc-500 dark:text-zinc-400' => $itemShop === null,
+                        ])
+                    >
+                        <span class="truncate">
+                            {{ $itemShop?->name ?? __('Sense seleccionar') }}
+                        </span>
+                    </span>
                 </div>
             </div>
 
@@ -755,7 +868,11 @@ new #[Title('Llista de la compra')] class extends Component
                 :placeholder="__('Ex. tomàquets')"
             />
 
-            <div class="grid gap-3 sm:grid-cols-[8rem_minmax(0,1fr)]">
+            <div @class([
+                'grid gap-3',
+                'sm:grid-cols-[8rem_minmax(0,1fr)]' => $editingItemId === null,
+                'sm:max-w-[8rem]' => $editingItemId !== null,
+            ])>
                 <flux:input
                     wire:model="newItemQuantity"
                     :label="__('Qtat.')"
@@ -763,13 +880,15 @@ new #[Title('Llista de la compra')] class extends Component
                     min="1"
                 />
 
-                <flux:select
-                    wire:model="newItemVisibility"
-                    :label="__('Visibilitat')"
-                >
-                    <option value="{{ \App\ShoppingListItemVisibility::Public->value }}">{{ __('Públic del grup') }}</option>
-                    <option value="{{ \App\ShoppingListItemVisibility::Private->value }}">{{ __('Privat') }}</option>
-                </flux:select>
+                @if ($editingItemId === null)
+                    <flux:select
+                        wire:model="newItemVisibility"
+                        :label="__('Visibilitat')"
+                    >
+                        <option value="{{ \App\ShoppingListItemVisibility::Public->value }}">{{ __('Públic del grup') }}</option>
+                        <option value="{{ \App\ShoppingListItemVisibility::Private->value }}">{{ __('Privat') }}</option>
+                    </flux:select>
+                @endif
             </div>
 
             <div class="flex justify-end gap-2">
@@ -778,7 +897,7 @@ new #[Title('Llista de la compra')] class extends Component
                 </flux:modal.close>
 
                 <flux:button variant="primary" type="submit">
-                    {{ __('Afegir') }}
+                    {{ $editingItemId === null ? __('Afegir') : __('Desa canvis') }}
                 </flux:button>
             </div>
         </form>
