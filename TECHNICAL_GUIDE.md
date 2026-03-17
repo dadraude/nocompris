@@ -91,6 +91,20 @@ Abans d’afegir lògica nova, comprova si la regla ja existeix en models o poli
 
 Si una feature nova depèn d’accés o visibilitat, aquestes peces són la font de veritat. No convé reproduir aquestes condicions a mà dins la UI si es poden reutilitzar via polítiques o scopes.
 
+## Invariants funcionals que no s’han de trencar
+
+Quan una feature afecta ordenació, permisos o visibilitat, hi ha contractes de comportament que s’han de mantenir encara que la implementació canviï.
+
+- Reordenar botigues reindexa només les botigues visibles per a l’usuari actual. La implementació principal viu a `resources/views/pages/⚡shopping-list.blade.php`.
+- Reordenar ítems reindexa només els ítems visibles dins de la botiga. Un ítem privat ocult no s’ha de moure ni renumerar indirectament. Aquest comportament es valida a `tests/Feature/ShoppingListTest.php`.
+- Una botiga nova s’afegeix al final de l’ordre visible per a l’usuari que la crea. La lògica actual viu a `resources/views/pages/⚡shopping-list.blade.php`.
+- Un ítem nou s’afegeix al final de l’ordre actual de la seva botiga. La lògica actual viu a `resources/views/pages/⚡shopping-list.blade.php`.
+- Un ítem públic el pot editar qualsevol usuari amb visibilitat sobre la botiga; un ítem privat només el creador. La font de veritat és `app/Policies/ShoppingListItemPolicy.php`.
+- Una botiga només es pot eliminar si no té ítems pendents visibles per a l’usuari que la vol esborrar. La font de veritat és `app/Models/Shop.php`.
+- Els usuaris `master` queden fora del flux normal de compra i no poden crear botigues des d’aquesta UI. Aquest comportament queda cobert pels fluxos de `tests/Feature/ShoppingListTest.php`, `tests/Feature/MasterAccessTest.php` i `tests/Feature/Auth/AuthenticationTest.php`.
+
+Si una feature toca algun d’aquests contractes, revisa com a mínim `tests/Feature/ShoppingListTest.php` i, segons l’abast del canvi, també `tests/Feature/FullShoppingListTest.php`, `tests/Feature/MasterAccessTest.php` o `tests/Feature/Auth/AuthenticationTest.php`. Per a visibilitat i permisos, `app/Models/Shop.php` i `app/Policies/ShoppingListItemPolicy.php` continuen sent la font de veritat.
+
 ## Flux d’autenticació
 
 NoCompris no fa servir el login tradicional amb contrasenya com a entrada principal.
