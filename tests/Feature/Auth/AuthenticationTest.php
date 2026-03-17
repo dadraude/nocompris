@@ -33,7 +33,8 @@ test('login page exposes the current brand assets', function () {
     $response
         ->assertOk()
         ->assertSee('data-brand-mark', false)
-        ->assertSee('aria-label="NoCompris"', false)
+        ->assertSee('<meta name="application-name" content="NoCompris"', false)
+        ->assertSee('<meta name="apple-mobile-web-app-title" content="NoCompris"', false)
         ->assertSee('favicon.svg', false)
         ->assertSee('favicon.ico', false)
         ->assertSee('apple-touch-icon.png', false);
