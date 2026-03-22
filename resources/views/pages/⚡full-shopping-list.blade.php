@@ -20,6 +20,11 @@ new #[Title('Llistat complet')] class extends Component
     public string $sortMode = 'shop';
 
     /**
+     * @var list<int>
+     */
+    public array $selectedShopIds = [];
+
+    /**
      * Get the shops and visible items for the authenticated user.
      */
     #[Computed]
@@ -39,12 +44,42 @@ new #[Title('Llistat complet')] class extends Component
     }
 
     /**
+     * Get the selected shops for the current filter state.
+     */
+    #[Computed]
+    public function selectedShops(): Collection
+    {
+        $selectedShopIds = $this->normalizedSelectedShopIds();
+
+        if ($selectedShopIds === []) {
+            return new Collection();
+        }
+
+        return $this->shops
+            ->filter(fn (Shop $shop): bool => in_array($shop->id, $selectedShopIds, true))
+            ->values();
+    }
+
+    /**
+     * Get the shops allowed by the current filter state.
+     */
+    #[Computed]
+    public function filteredShops(): Collection
+    {
+        if (! $this->hasActiveShopFilters) {
+            return $this->shops;
+        }
+
+        return $this->selectedShops;
+    }
+
+    /**
      * Get every visible item in shop order.
      */
     #[Computed]
     public function items(): SupportCollection
     {
-        return $this->shops
+        return $this->filteredShops
             ->flatMap(function (Shop $shop): SupportCollection {
                 return $shop->shoppingListItems
                     ->map(fn (ShoppingListItem $item): ShoppingListItem => $item->setRelation('shop', $shop));
@@ -80,6 +115,15 @@ new #[Title('Llistat complet')] class extends Component
     }
 
     /**
+     * Determine whether one or more shop filters are active.
+     */
+    #[Computed]
+    public function hasActiveShopFilters(): bool
+    {
+        return $this->normalizedSelectedShopIds() !== [];
+    }
+
+    /**
      * Keep the sort mode within the supported values.
      */
     public function updatedSortMode(string $value): void
@@ -87,6 +131,43 @@ new #[Title('Llistat complet')] class extends Component
         if (! in_array($value, ['shop', 'alphabetical'], true)) {
             $this->sortMode = 'shop';
         }
+    }
+
+    /**
+     * Add or remove a shop from the active filter.
+     */
+    public function toggleShopFilter(int $shopId): void
+    {
+        $shop = $this->findShop($shopId);
+
+        $this->authorize('view', $shop);
+
+        $selectedShopIds = $this->normalizedSelectedShopIds();
+
+        if (in_array($shopId, $selectedShopIds, true)) {
+            $this->selectedShopIds = array_values(array_filter(
+                $selectedShopIds,
+                fn (int $selectedShopId): bool => $selectedShopId !== $shopId,
+            ));
+
+            return;
+        }
+
+        $selectedShopIds[] = $shopId;
+        $availableShopIds = $this->shops->pluck('id')->all();
+
+        $this->selectedShopIds = array_values(array_filter(
+            $availableShopIds,
+            fn (int $availableShopId): bool => in_array($availableShopId, $selectedShopIds, true),
+        ));
+    }
+
+    /**
+     * Clear the active shop filters.
+     */
+    public function clearShopFilters(): void
+    {
+        $this->selectedShopIds = [];
     }
 
     /**
@@ -129,6 +210,14 @@ new #[Title('Llistat complet')] class extends Component
     }
 
     /**
+     * Determine whether the given shop is currently selected.
+     */
+    public function shopFilterIsActive(int $shopId): bool
+    {
+        return in_array($shopId, $this->normalizedSelectedShopIds(), true);
+    }
+
+    /**
      * Convert a hex color into decimal RGB channels.
      *
      * @return array{0: int, 1: int, 2: int}
@@ -160,6 +249,31 @@ new #[Title('Llistat complet')] class extends Component
             ->visibleTo(Auth::user())
             ->findOrFail($itemId);
     }
+
+    /**
+     * Find a visible shop by its identifier.
+     */
+    protected function findShop(int $shopId): Shop
+    {
+        return Shop::query()
+            ->visibleTo(Auth::user())
+            ->findOrFail($shopId);
+    }
+
+    /**
+     * Normalize the selected shop identifiers.
+     *
+     * @return list<int>
+     */
+    protected function normalizedSelectedShopIds(): array
+    {
+        return collect($this->selectedShopIds)
+            ->map(fn (mixed $shopId): int => (int) $shopId)
+            ->filter(fn (int $shopId): bool => $shopId > 0)
+            ->unique()
+            ->values()
+            ->all();
+    }
 };
 ?>
 
@@ -175,21 +289,85 @@ new #[Title('Llistat complet')] class extends Component
                     </flux:subheading>
                 </div>
 
-                <div class="grid gap-2 sm:min-w-64">
+                <div class="grid gap-3 lg:min-w-[24rem]">
                     <flux:select wire:model.live="sortMode" :label="__('Organitza per')" data-test="full-list-sort-select">
                         <option value="shop">{{ __('Botiga') }}</option>
                         <option value="alphabetical">{{ __('Ordre alfabètic') }}</option>
                     </flux:select>
+
+                    @if ($this->shops->isNotEmpty())
+                        <div class="grid gap-2" data-test="full-list-shop-filters">
+                            <div class="flex items-center justify-between gap-2">
+                                <p class="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
+                                    {{ __('Filtra per botigues') }}
+                                </p>
+
+                                @if ($this->hasActiveShopFilters)
+                                    <button
+                                        type="button"
+                                        wire:click="clearShopFilters"
+                                        data-test="full-list-clear-shop-filters"
+                                        class="text-sm font-medium text-zinc-600 transition hover:text-zinc-900 dark:text-zinc-300 dark:hover:text-zinc-100"
+                                    >
+                                        {{ __('Mostrar totes') }}
+                                    </button>
+                                @endif
+                            </div>
+
+                            <div class="flex flex-wrap gap-2">
+                                @foreach ($this->shops as $shop)
+                                    @php($isSelected = $this->shopFilterIsActive($shop->id))
+
+                                    <button
+                                        type="button"
+                                        wire:key="full-list-shop-filter-{{ $shop->id }}"
+                                        wire:click="toggleShopFilter({{ $shop->id }})"
+                                        data-test="full-list-shop-filter"
+                                        aria-pressed="{{ $isSelected ? 'true' : 'false' }}"
+                                        @class([
+                                            'inline-flex max-w-full items-center gap-2 rounded-full border px-3 py-2 text-sm font-medium transition',
+                                            'border-zinc-300 bg-white text-zinc-950 shadow-sm dark:border-zinc-500 dark:bg-zinc-800 dark:text-zinc-50' => $isSelected,
+                                            'border-zinc-200 bg-white/80 text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-300 dark:hover:border-zinc-500 dark:hover:text-zinc-100' => ! $isSelected,
+                                        ])
+                                    >
+                                        <span
+                                            class="size-2.5 shrink-0 rounded-full"
+                                            style="background-color: {{ $shop->color }};"
+                                            aria-hidden="true"
+                                        ></span>
+
+                                        <span class="truncate">{{ $shop->name }}</span>
+                                    </button>
+                                @endforeach
+                            </div>
+                        </div>
+                    @endif
                 </div>
             </div>
         </div>
 
-        @if ($this->items->isEmpty())
+        @if ($this->orderedItems->isEmpty())
             <div class="rounded-xl border border-dashed border-zinc-300 bg-white/80 px-4 py-6 text-center shadow-sm dark:border-zinc-700 dark:bg-zinc-900/60 sm:rounded-2xl">
-                <flux:heading size="lg">{{ __('Encara no tens productes visibles') }}</flux:heading>
+                <flux:heading size="lg">
+                    {{ $this->hasActiveShopFilters
+                        ? __('No hi ha productes visibles a les botigues seleccionades')
+                        : __('Encara no tens productes visibles') }}
+                </flux:heading>
                 <flux:text class="mt-3 text-zinc-500 dark:text-zinc-400">
-                    {{ __('Quan afegeixis productes a la llista, els veuràs aquí amb una vista compacta.') }}
+                    {{ $this->hasActiveShopFilters
+                        ? __('Canvia la selecció de botigues o mostra-les totes per recuperar la vista global.')
+                        : __('Quan afegeixis productes a la llista, els veuràs aquí amb una vista compacta.') }}
                 </flux:text>
+
+                @if ($this->hasActiveShopFilters)
+                    <button
+                        type="button"
+                        wire:click="clearShopFilters"
+                        class="mt-4 inline-flex rounded-full border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition hover:border-zinc-400 hover:text-zinc-950 dark:border-zinc-600 dark:text-zinc-200 dark:hover:border-zinc-500 dark:hover:text-zinc-50"
+                    >
+                        {{ __('Mostrar totes les botigues') }}
+                    </button>
+                @endif
             </div>
         @else
             <div
@@ -204,6 +382,11 @@ new #[Title('Llistat complet')] class extends Component
                         <flux:heading size="lg">
                             {{ $sortMode === 'alphabetical' ? __('Productes de la A a la Z') : __('Productes segons l’ordre de botiga') }}
                         </flux:heading>
+                        <p class="text-sm text-zinc-500 dark:text-zinc-400">
+                            {{ $this->hasActiveShopFilters
+                                ? __('Filtrant :count botigues', ['count' => $this->selectedShops->count()])
+                                : __('Mostrant totes les botigues visibles') }}
+                        </p>
                     </div>
 
                     <span class="rounded-full bg-zinc-100 px-2.5 py-1 text-sm font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-200">

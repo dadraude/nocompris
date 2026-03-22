@@ -84,7 +84,7 @@ test('shopping list renders compact layout hooks', function () {
 
     ShoppingListItem::factory()->for($shop)->for($user)->create([
         'name' => 'Pasta',
-        'purchased' => true,
+        'purchased' => false,
         'position' => 1,
     ]);
 
@@ -147,6 +147,67 @@ test('shop header shows the visible pending to total items ratio', function () {
         ->assertSuccessful()
         ->assertSeeInOrder(['1/2', 'Mercat central'])
         ->assertDontSee('producte pendent');
+});
+
+test('shopping list hides purchased items by default and can reveal them on demand', function () {
+    $user = User::factory()->create();
+    $shop = Shop::factory()->for($user)->create([
+        'name' => 'Mercat central',
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($user)->create([
+        'name' => 'Pasta',
+        'purchased' => false,
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($user)->create([
+        'name' => 'Tomàquet',
+        'purchased' => true,
+        'position' => 2,
+    ]);
+
+    $this->actingAs($user);
+
+    $this->get(route('dashboard'))
+        ->assertSuccessful()
+        ->assertSee('Mostra comprats')
+        ->assertSee('Pasta')
+        ->assertDontSee('Tomàquet');
+
+    Livewire::test('pages::shopping-list')
+        ->assertSee('Pasta')
+        ->assertDontSee('Tomàquet')
+        ->call('togglePurchasedVisibility')
+        ->assertSee('Amaga comprats')
+        ->assertSee('Pasta')
+        ->assertSee('Tomàquet');
+});
+
+test('shopping list keeps shops visible but muted when all visible items are purchased', function () {
+    $user = User::factory()->create();
+    $shop = Shop::factory()->for($user)->create([
+        'name' => 'Mercat central',
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($user)->create([
+        'name' => 'Tomàquet',
+        'purchased' => true,
+        'position' => 1,
+    ]);
+
+    $this->actingAs($user);
+
+    $this->get(route('dashboard'))
+        ->assertSuccessful()
+        ->assertSee('Mercat central')
+        ->assertSee('Mostra comprats')
+        ->assertSee('data-test="shop-muted"', false)
+        ->assertSee('data-test="shop-empty-pending"', false)
+        ->assertSee('No hi ha productes pendents en aquesta botiga.')
+        ->assertDontSee('Tomàquet');
 });
 
 test('user can create a shop shared with their group using the next position', function () {
@@ -353,6 +414,27 @@ test('group member can reorder visible shops with drag and drop', function () {
         'name' => 'Tercera',
         'user_group_id' => $group->id,
         'position' => 3,
+    ]);
+
+    ShoppingListItem::factory()->for($firstShop)->for($owner)->create([
+        'name' => 'Pomes',
+        'purchased' => false,
+        'visibility' => ShoppingListItemVisibility::Public,
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($secondShop)->for($user)->create([
+        'name' => 'Pa',
+        'purchased' => false,
+        'visibility' => ShoppingListItemVisibility::Public,
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($thirdShop)->for($owner)->create([
+        'name' => 'Llet',
+        'purchased' => false,
+        'visibility' => ShoppingListItemVisibility::Public,
+        'position' => 1,
     ]);
 
     $this->actingAs($user);

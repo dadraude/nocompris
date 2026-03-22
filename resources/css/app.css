@@ -76,6 +76,10 @@
         @apply overflow-hidden rounded-xl border border-zinc-200 bg-white/95 shadow-sm sm:rounded-2xl dark:border-zinc-700 dark:bg-zinc-900/70;
     }
 
+    .app-shop-card-muted {
+        @apply opacity-80 saturate-50;
+    }
+
     .app-shop-header {
         @apply flex flex-col gap-3 border-b border-zinc-200 px-3 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-4 sm:py-4 dark:border-zinc-700;
         background-color: var(--shop-header-bg, #d6d3d1);

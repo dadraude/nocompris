@@ -29,6 +29,8 @@ new #[Title('Llista de la compra')] class extends Component
 
     public ?int $editingItemId = null;
 
+    public bool $showPurchased = false;
+
     public string $shopName = '';
 
     public string $shopColor = self::DEFAULT_SHOP_COLOR;
@@ -311,6 +313,14 @@ new #[Title('Llista de la compra')] class extends Component
     }
 
     /**
+     * Toggle whether purchased items should be visible.
+     */
+    public function togglePurchasedVisibility(): void
+    {
+        $this->showPurchased = ! $this->showPurchased;
+    }
+
+    /**
      * Persist a new order for the visible shops.
      */
     public function reorderShops(int $shopId, int $position): void
@@ -319,11 +329,12 @@ new #[Title('Llista de la compra')] class extends Component
 
         $this->authorize('reorder', $shop);
 
-        $orderedShops = $this->moveModelsToPosition($this->shops, $shopId, $position);
+        $visibleShops = $this->visibleShops();
+        $orderedShops = $this->moveModelsToPosition($visibleShops, $shopId, $position);
 
         $this->persistPositions(
             $orderedShops,
-            range(1, $orderedShops->count()),
+            $visibleShops->pluck('position')->sort()->values()->all(),
         );
     }
 
@@ -338,10 +349,17 @@ new #[Title('Llista de la compra')] class extends Component
 
         $item = $this->findItem($itemId);
         $shop = $this->findShop($item->shop_id);
-        $visibleItems = $shop->shoppingListItems()
-            ->visibleTo(Auth::user())
-            ->with('user')
-            ->get();
+        $shopFromCollection = $this->shops->firstWhere('id', $shop->id);
+        $visibleItems = $shopFromCollection instanceof Shop
+            ? $this->visibleItemsForShop($shopFromCollection)
+            : $shop->shoppingListItems()
+                ->visibleTo(Auth::user())
+                ->with('user')
+                ->get()
+                ->when(
+                    ! $this->showPurchased,
+                    fn (Collection $items): Collection => $items->where('purchased', false)->values(),
+                );
         $item = $visibleItems->firstWhere('id', $itemId) ?? $item;
 
         $this->authorize('reorder', $item);
@@ -490,6 +508,29 @@ new #[Title('Llista de la compra')] class extends Component
             ->visibleTo(Auth::user())
             ->findOrFail($itemId);
     }
+
+    /**
+     * Get the items that should be shown for the given shop.
+     */
+    public function visibleItemsForShop(Shop $shop): Collection
+    {
+        if ($this->showPurchased) {
+            return $shop->shoppingListItems;
+        }
+
+        return $shop->shoppingListItems
+            ->where('purchased', false)
+            ->values();
+    }
+
+    /**
+     * Get the shops that should be shown in the current view.
+     */
+    public function visibleShops(): Collection
+    {
+        return $this->shops;
+    }
+
 };
 ?>
 
@@ -513,6 +554,15 @@ new #[Title('Llista de la compra')] class extends Component
                             <x-action-message on="item-added">{{ __('Producte afegit.') }}</x-action-message>
                             <x-action-message on="item-updated">{{ __('Quantitat actualitzada.') }}</x-action-message>
                         </div>
+
+                        <flux:button
+                            :variant="$showPurchased ? 'filled' : 'outline'"
+                            size="sm"
+                            wire:click="togglePurchasedVisibility"
+                            class="w-full sm:w-auto"
+                        >
+                            {{ $showPurchased ? __('Amaga comprats') : __('Mostra comprats') }}
+                        </flux:button>
 
                         <flux:modal.trigger name="shop-form" class="w-full sm:w-auto">
                             <flux:button variant="primary" size="sm" wire:click="startCreatingShop" class="w-full sm:w-auto">
@@ -548,13 +598,20 @@ new #[Title('Llista de la compra')] class extends Component
             </div>
         @else
             <div class="grid gap-3" wire:sort="reorderShops">
-                @foreach ($this->shops as $shop)
+                @foreach ($this->visibleShops() as $shop)
+                    @php($visibleItems = $this->visibleItemsForShop($shop))
+                    @php($shopIsMuted = ! $showPurchased && $visibleItems->isEmpty())
+
                     <article
                         wire:key="shop-{{ $shop->id }}"
                         wire:sort:item="{{ $shop->id }}"
                         x-data="{ expanded: false }"
                         data-shop-shell
-                        class="app-shop-card"
+                        @class([
+                            'app-shop-card',
+                            'app-shop-card-muted' => $shopIsMuted,
+                        ])
+                        @if ($shopIsMuted) data-test="shop-muted" @endif
                         style="{{ $this->shopHeaderStyle($shop) }}"
                     >
                         <div class="app-shop-header relative">
@@ -634,15 +691,18 @@ new #[Title('Llista de la compra')] class extends Component
                                         @endcan
                                     </div>
 
-                                    @if ($shop->shoppingListItems->isEmpty())
-                                        <div class="rounded-xl border border-dashed border-zinc-200 bg-white/70 px-3 py-4 text-center dark:border-zinc-700 dark:bg-zinc-950/25">
+                                    @if ($visibleItems->isEmpty())
+                                        <div
+                                            data-test="shop-empty-pending"
+                                            class="rounded-xl border border-dashed border-zinc-200 bg-white/70 px-3 py-4 text-center dark:border-zinc-700 dark:bg-zinc-950/25"
+                                        >
                                             <flux:text class="text-zinc-500 dark:text-zinc-400">
-                                                {{ __('Encara no hi ha productes en aquesta botiga.') }}
+                                                {{ __('No hi ha productes pendents en aquesta botiga.') }}
                                             </flux:text>
                                         </div>
                                     @else
                                         <div data-shop-items class="space-y-1.5" wire:sort="reorderItems">
-                                            @foreach ($shop->shoppingListItems as $item)
+                                            @foreach ($visibleItems as $item)
                                                 <div
                                                     wire:key="item-{{ $item->id }}"
                                                     wire:sort:item="{{ $item->id }}"

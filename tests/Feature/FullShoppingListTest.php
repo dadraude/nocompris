@@ -9,6 +9,7 @@ use Livewire\Livewire;
 
 test('authenticated user can visit the full shopping list page from the sidebar navigation', function () {
     $user = User::factory()->create();
+    Shop::factory()->for($user)->create();
 
     $this->actingAs($user);
 
@@ -18,6 +19,7 @@ test('authenticated user can visit the full shopping list page from the sidebar 
         ->assertSuccessful()
         ->assertSee('Llistat complet')
         ->assertSee('Organitza per')
+        ->assertSee('Filtra per botigues')
         ->assertSee('data-test="full-list-sort-select"', false)
         ->assertSee('Llista de la compra');
 });
@@ -139,6 +141,57 @@ test('full shopping list can toggle items as purchased', function () {
         ->call('togglePurchased', $item->id);
 
     expect($item->refresh()->purchased)->toBeTrue();
+});
+
+test('full shopping list can filter items by one or more shops', function () {
+    $user = User::factory()->create();
+
+    $fruitShop = Shop::factory()->for($user)->create([
+        'name' => 'Fruita',
+        'position' => 1,
+    ]);
+
+    $bakeryShop = Shop::factory()->for($user)->create([
+        'name' => 'Forn',
+        'position' => 2,
+    ]);
+
+    $cleaningShop = Shop::factory()->for($user)->create([
+        'name' => 'Neteja',
+        'position' => 3,
+    ]);
+
+    ShoppingListItem::factory()->for($fruitShop)->for($user)->create([
+        'name' => 'Poma filtrada',
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($bakeryShop)->for($user)->create([
+        'name' => 'Pa filtrat',
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($cleaningShop)->for($user)->create([
+        'name' => 'Sabó filtrat',
+        'position' => 1,
+    ]);
+
+    $this->actingAs($user);
+
+    Livewire::test('pages::full-shopping-list')
+        ->assertSee('Poma filtrada')
+        ->assertSee('Pa filtrat')
+        ->assertSee('Sabó filtrat')
+        ->call('toggleShopFilter', $fruitShop->id)
+        ->assertSet('selectedShopIds', [$fruitShop->id])
+        ->assertSee('Poma filtrada')
+        ->assertDontSee('Pa filtrat')
+        ->assertDontSee('Sabó filtrat')
+        ->call('toggleShopFilter', $bakeryShop->id)
+        ->assertSet('selectedShopIds', [$fruitShop->id, $bakeryShop->id])
+        ->assertSee('Poma filtrada')
+        ->assertSee('Pa filtrat')
+        ->assertDontSee('Sabó filtrat');
 });
 
 test('master users are redirected from the full shopping list page', function () {
