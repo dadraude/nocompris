@@ -22,13 +22,14 @@ test('authenticated user can visit the full shopping list page from the sidebar 
         ->assertSuccessful()
         ->assertSee('Llistat complet')
         ->assertSee('Organitza per')
+        ->assertSee('Mostra comprats')
         ->assertSee('Filtra per botigues')
         ->assertSee('data-test="full-list-sort-select"', false)
         ->assertSee('Llista de la compra')
         ->assertDontSee('Vista global');
 });
 
-test('full shopping list shows only visible pending items with quantities and shop badges', function () {
+test('full shopping list shows visible items with quantities and shop badges', function () {
     $group = UserGroup::factory()->create();
     $user = User::factory()->inGroup($group)->create();
     $groupMember = User::factory()->inGroup($group)->create();
@@ -73,6 +74,7 @@ test('full shopping list shows only visible pending items with quantities and sh
         ->assertSeeInOrder(['7', 'Pasta'])
         ->assertSee('aria-label="Botiga Mercat central"', false)
         ->assertSee('background-color: rgb(194, 65, 12); color: rgb(250, 250, 250);', false)
+        ->assertSee('Mostra comprats')
         ->assertDontSee('Ja comprat')
         ->assertDontSee('Secret privat');
 });
@@ -160,7 +162,7 @@ test('full shopping list can toggle items as purchased', function () {
     expect($item->refresh()->purchased)->toBeTrue();
 });
 
-test('full shopping list only offers shop filters with visible pending items', function () {
+test('full shopping list offers shop filters for shops with visible items', function () {
     $user = User::factory()->create();
 
     $pendingShop = Shop::factory()->for($user)->create([
@@ -189,9 +191,78 @@ test('full shopping list only offers shop filters with visible pending items', f
 
     Livewire::test('pages::full-shopping-list')
         ->assertSee('Fruita')
-        ->assertDontSee('Rebost')
+        ->assertSee('Rebost')
         ->assertSee('Poma')
         ->assertDontSee('Arròs');
+});
+
+test('full shopping list can filter items by purchase state', function () {
+    $user = User::factory()->create();
+
+    $shop = Shop::factory()->for($user)->create([
+        'name' => 'Mercat',
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($user)->create([
+        'name' => 'Formatge pendent',
+        'purchased' => false,
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($user)->create([
+        'name' => 'Iogurt comprat',
+        'purchased' => true,
+        'position' => 2,
+    ]);
+
+    $this->actingAs($user);
+
+    $this->get(route('shopping-list.full'))
+        ->assertSuccessful()
+        ->assertSee('Formatge pendent')
+        ->assertDontSee('Iogurt comprat');
+
+    $this->get(route('shopping-list.full', ['purchase' => 'all']))
+        ->assertSuccessful()
+        ->assertSee('Formatge pendent')
+        ->assertSee('Iogurt comprat');
+});
+
+test('full shopping list can toggle the pending-only filter on and off', function () {
+    $user = User::factory()->create();
+
+    $shop = Shop::factory()->for($user)->create([
+        'name' => 'Mercat',
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($user)->create([
+        'name' => 'Pendent toggle',
+        'purchased' => false,
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($user)->create([
+        'name' => 'Comprat toggle',
+        'purchased' => true,
+        'position' => 2,
+    ]);
+
+    $this->actingAs($user);
+
+    Livewire::test('pages::full-shopping-list')
+        ->assertSet('purchaseFilter', 'pending')
+        ->assertSee('Pendent toggle')
+        ->assertDontSee('Comprat toggle')
+        ->call('togglePurchasedVisibility')
+        ->assertSet('purchaseFilter', 'all')
+        ->assertSee('Pendent toggle')
+        ->assertSee('Comprat toggle')
+        ->call('togglePurchasedVisibility')
+        ->assertSet('purchaseFilter', 'pending')
+        ->assertSee('Pendent toggle')
+        ->assertDontSee('Comprat toggle');
 });
 
 test('full shopping list can filter items by one or more shops', function () {

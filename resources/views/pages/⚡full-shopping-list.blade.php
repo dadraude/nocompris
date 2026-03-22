@@ -19,13 +19,16 @@ new #[Title('Llistat complet')] class extends Component
     #[Url]
     public string $sortMode = 'shop';
 
+    #[Url(as: 'purchase')]
+    public string $purchaseFilter = 'pending';
+
     /**
      * @var list<int>
      */
     public array $selectedShopIds = [];
 
     /**
-     * Get the shops and visible pending items for the authenticated user.
+     * Get the shops and visible items for the authenticated user.
      */
     #[Computed]
     public function shops(): Collection
@@ -34,13 +37,9 @@ new #[Title('Llistat complet')] class extends Component
 
         return Shop::query()
             ->visibleTo($user)
-            ->whereHas('shoppingListItems', fn ($query) => $query
-                ->visibleTo($user)
-                ->where('purchased', false))
             ->with([
                 'shoppingListItems' => fn ($query) => $query
                     ->visibleTo($user)
-                    ->where('purchased', false)
                     ->with('user'),
             ])
             ->orderBy('position')
@@ -78,21 +77,29 @@ new #[Title('Llistat complet')] class extends Component
     }
 
     /**
-     * Get every visible pending item in shop order.
+     * Get every visible item in shop order.
      */
     #[Computed]
     public function items(): SupportCollection
     {
-        return $this->filteredShops
+        $items = $this->filteredShops
             ->flatMap(function (Shop $shop): SupportCollection {
                 return $shop->shoppingListItems
                     ->map(fn (ShoppingListItem $item): ShoppingListItem => $item->setRelation('shop', $shop));
             })
             ->values();
+
+        if ($this->purchaseFilter === 'pending') {
+            return $items
+                ->filter(fn (ShoppingListItem $item): bool => ! $item->purchased)
+                ->values();
+        }
+
+        return $items;
     }
 
     /**
-     * Get the visible pending items in alphabetical order.
+     * Get the visible items in alphabetical order.
      */
     #[Computed]
     public function alphabeticalItems(): SupportCollection
@@ -108,7 +115,7 @@ new #[Title('Llistat complet')] class extends Component
     }
 
     /**
-     * Get the visible pending items in the selected display order.
+     * Get the visible items in the selected display order.
      */
     #[Computed]
     public function orderedItems(): SupportCollection
@@ -134,6 +141,16 @@ new #[Title('Llistat complet')] class extends Component
     {
         if (! in_array($value, ['shop', 'alphabetical'], true)) {
             $this->sortMode = 'shop';
+        }
+    }
+
+    /**
+     * Keep the purchase filter within the supported values.
+     */
+    public function updatedPurchaseFilter(string $value): void
+    {
+        if (! in_array($value, ['all', 'pending'], true)) {
+            $this->purchaseFilter = 'all';
         }
     }
 
@@ -172,6 +189,25 @@ new #[Title('Llistat complet')] class extends Component
     public function clearShopFilters(): void
     {
         $this->selectedShopIds = [];
+    }
+
+    /**
+     * Determine whether the purchase filter is active.
+     */
+    #[Computed]
+    public function hasActivePurchaseFilter(): bool
+    {
+        return $this->purchaseFilter === 'pending';
+    }
+
+    /**
+     * Toggle whether purchased items should be visible.
+     */
+    public function togglePurchasedVisibility(): void
+    {
+        $this->purchaseFilter = $this->purchaseFilter === 'pending'
+            ? 'all'
+            : 'pending';
     }
 
     /**
@@ -219,6 +255,14 @@ new #[Title('Llistat complet')] class extends Component
     public function shopFilterIsActive(int $shopId): bool
     {
         return in_array($shopId, $this->normalizedSelectedShopIds(), true);
+    }
+
+    /**
+     * Determine whether the given purchase filter option is active.
+     */
+    public function purchaseFilterIsActive(string $value): bool
+    {
+        return $this->purchaseFilter === $value;
     }
 
     /**
@@ -271,9 +315,15 @@ new #[Title('Llistat complet')] class extends Component
      */
     protected function normalizedSelectedShopIds(): array
     {
+        $availableShopIds = $this->shops
+            ->pluck('id')
+            ->map(fn (mixed $shopId): int => (int) $shopId)
+            ->all();
+
         return collect($this->selectedShopIds)
             ->map(fn (mixed $shopId): int => (int) $shopId)
             ->filter(fn (int $shopId): bool => $shopId > 0)
+            ->filter(fn (int $shopId): bool => in_array($shopId, $availableShopIds, true))
             ->unique()
             ->values()
             ->all();
@@ -294,6 +344,22 @@ new #[Title('Llistat complet')] class extends Component
                         <option value="shop">{{ __('Botiga') }}</option>
                         <option value="alphabetical">{{ __('Ordre alfabètic') }}</option>
                     </flux:select>
+
+                    <div data-test="full-list-purchase-filters">
+                        <button
+                            type="button"
+                            wire:click="togglePurchasedVisibility"
+                            data-test="full-list-purchased-toggle"
+                            aria-pressed="{{ $this->hasActivePurchaseFilter ? 'false' : 'true' }}"
+                            @class([
+                                'inline-flex w-fit items-center rounded-full border px-3 py-2 text-sm font-medium transition',
+                                'border-zinc-300 bg-white text-zinc-950 shadow-sm dark:border-zinc-500 dark:bg-zinc-800 dark:text-zinc-50' => ! $this->hasActivePurchaseFilter,
+                                'border-zinc-200 bg-white/80 text-zinc-600 hover:border-zinc-300 hover:text-zinc-900 dark:border-zinc-700 dark:bg-zinc-900/70 dark:text-zinc-300 dark:hover:border-zinc-500 dark:hover:text-zinc-100' => $this->hasActivePurchaseFilter,
+                            ])
+                        >
+                            {{ $this->hasActivePurchaseFilter ? __('Mostra comprats') : __('Amaga comprats') }}
+                        </button>
+                    </div>
 
                     @if ($this->shops->isNotEmpty())
                         <div class="grid gap-2" data-test="full-list-shop-filters">
@@ -350,24 +416,40 @@ new #[Title('Llistat complet')] class extends Component
             <div class="rounded-xl border border-dashed border-zinc-300 bg-white/80 px-4 py-6 text-center shadow-sm dark:border-zinc-700 dark:bg-zinc-900/60 sm:rounded-2xl">
                 <flux:heading size="lg">
                     {{ $this->hasActiveShopFilters
-                        ? __('No hi ha productes pendents a les botigues seleccionades')
-                        : __('Encara no tens productes pendents') }}
+                        ? __('No hi ha productes visibles amb els filtres actuals')
+                        : ($this->hasActivePurchaseFilter
+                            ? __('Encara no tens productes pendents')
+                            : __('Encara no tens productes visibles')) }}
                 </flux:heading>
                 <flux:text class="mt-3 text-zinc-500 dark:text-zinc-400">
                     {{ $this->hasActiveShopFilters
-                        ? __('Canvia la selecció de botigues o mostra-les totes per recuperar la vista global.')
-                        : __('Quan tinguis productes pendents a la llista, els veuràs aquí amb una vista compacta.') }}
+                        ? __('Canvia la selecció de botigues o mostra els comprats per recuperar la vista global.')
+                        : ($this->hasActivePurchaseFilter
+                            ? __('Quan vulguis revisar també els productes comprats, els pots mostrar amb el botó superior.')
+                            : __('Quan afegeixis productes a la llista, els veuràs aquí amb una vista compacta.')) }}
                 </flux:text>
 
-                @if ($this->hasActiveShopFilters)
-                    <button
-                        type="button"
-                        wire:click="clearShopFilters"
-                        class="mt-4 inline-flex rounded-full border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition hover:border-zinc-400 hover:text-zinc-950 dark:border-zinc-600 dark:text-zinc-200 dark:hover:border-zinc-500 dark:hover:text-zinc-50"
-                    >
-                        {{ __('Mostrar totes les botigues') }}
-                    </button>
-                @endif
+                <div class="mt-4 flex flex-wrap justify-center gap-2">
+                    @if ($this->hasActiveShopFilters)
+                        <button
+                            type="button"
+                            wire:click="clearShopFilters"
+                            class="inline-flex rounded-full border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition hover:border-zinc-400 hover:text-zinc-950 dark:border-zinc-600 dark:text-zinc-200 dark:hover:border-zinc-500 dark:hover:text-zinc-50"
+                        >
+                            {{ __('Mostrar totes les botigues') }}
+                        </button>
+                    @endif
+
+                    @if ($this->hasActivePurchaseFilter)
+                        <button
+                            type="button"
+                            wire:click="togglePurchasedVisibility"
+                            class="inline-flex rounded-full border border-zinc-300 px-4 py-2 text-sm font-medium text-zinc-700 transition hover:border-zinc-400 hover:text-zinc-950 dark:border-zinc-600 dark:text-zinc-200 dark:hover:border-zinc-500 dark:hover:text-zinc-50"
+                        >
+                            {{ __('Mostra comprats') }}
+                        </button>
+                    @endif
+                </div>
             </div>
         @else
             <div
@@ -375,10 +457,17 @@ new #[Title('Llistat complet')] class extends Component
                 class="overflow-hidden rounded-xl border border-zinc-200/80 bg-white/85 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-900/65 sm:rounded-2xl"
             >
                 <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200/70 px-3 py-3 dark:border-zinc-700/70 sm:px-4">
-                    <div>
+                    <div class="space-y-1">
                         <flux:heading size="lg">
                             {{ $sortMode === 'alphabetical' ? __('Productes de la A a la Z') : __('Productes segons l’ordre de botiga') }}
                         </flux:heading>
+                        <p class="text-sm text-zinc-500 dark:text-zinc-400">
+                            {{ $this->hasActiveShopFilters
+                                ? __('Botigues seleccionades: :count', ['count' => $this->selectedShops->count()])
+                                : ($this->hasActivePurchaseFilter
+                                    ? __('Mostrant productes pendents')
+                                    : __('Mostrant tots els productes visibles')) }}
+                        </p>
                     </div>
 
                     <span class="rounded-full bg-zinc-100 px-2.5 py-1 text-sm font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-200">
