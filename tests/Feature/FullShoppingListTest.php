@@ -9,7 +9,10 @@ use Livewire\Livewire;
 
 test('authenticated user can visit the full shopping list page from the sidebar navigation', function () {
     $user = User::factory()->create();
-    Shop::factory()->for($user)->create();
+    $shop = Shop::factory()->for($user)->create();
+    ShoppingListItem::factory()->for($shop)->for($user)->create([
+        'purchased' => false,
+    ]);
 
     $this->actingAs($user);
 
@@ -21,10 +24,11 @@ test('authenticated user can visit the full shopping list page from the sidebar 
         ->assertSee('Organitza per')
         ->assertSee('Filtra per botigues')
         ->assertSee('data-test="full-list-sort-select"', false)
-        ->assertSee('Llista de la compra');
+        ->assertSee('Llista de la compra')
+        ->assertDontSee('Vista global');
 });
 
-test('full shopping list shows visible items with quantities and shop badges', function () {
+test('full shopping list shows only visible pending items with quantities and shop badges', function () {
     $group = UserGroup::factory()->create();
     $user = User::factory()->inGroup($group)->create();
     $groupMember = User::factory()->inGroup($group)->create();
@@ -40,6 +44,7 @@ test('full shopping list shows visible items with quantities and shop badges', f
         'name' => 'Pasta',
         'quantity' => 7,
         'visibility' => ShoppingListItemVisibility::Public,
+        'purchased' => false,
         'position' => 1,
     ]);
 
@@ -47,6 +52,14 @@ test('full shopping list shows visible items with quantities and shop badges', f
         'name' => 'Secret privat',
         'quantity' => 2,
         'position' => 2,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($groupMember)->create([
+        'name' => 'Ja comprat',
+        'quantity' => 1,
+        'visibility' => ShoppingListItemVisibility::Public,
+        'purchased' => true,
+        'position' => 3,
     ]);
 
     $this->actingAs($user);
@@ -60,6 +73,7 @@ test('full shopping list shows visible items with quantities and shop badges', f
         ->assertSeeInOrder(['7', 'Pasta'])
         ->assertSee('aria-label="Botiga Mercat central"', false)
         ->assertSee('background-color: rgb(194, 65, 12); color: rgb(250, 250, 250);', false)
+        ->assertDontSee('Ja comprat')
         ->assertDontSee('Secret privat');
 });
 
@@ -92,6 +106,7 @@ test('full shopping list uses a flat list ordered by shop position', function ()
         ->assertSuccessful()
         ->assertSee('data-test="full-list"', false)
         ->assertDontSee('data-test="full-list-grouped-by-shop"', false)
+        ->assertDontSee('Ordre actual')
         ->assertSeeInOrder(['Poma', 'Pa']);
 });
 
@@ -138,9 +153,45 @@ test('full shopping list can toggle items as purchased', function () {
     $this->actingAs($user);
 
     Livewire::test('pages::full-shopping-list')
-        ->call('togglePurchased', $item->id);
+        ->assertSee('Llet')
+        ->call('togglePurchased', $item->id)
+        ->assertDontSee('Llet');
 
     expect($item->refresh()->purchased)->toBeTrue();
+});
+
+test('full shopping list only offers shop filters with visible pending items', function () {
+    $user = User::factory()->create();
+
+    $pendingShop = Shop::factory()->for($user)->create([
+        'name' => 'Fruita',
+        'position' => 1,
+    ]);
+
+    $purchasedOnlyShop = Shop::factory()->for($user)->create([
+        'name' => 'Rebost',
+        'position' => 2,
+    ]);
+
+    ShoppingListItem::factory()->for($pendingShop)->for($user)->create([
+        'name' => 'Poma',
+        'purchased' => false,
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($purchasedOnlyShop)->for($user)->create([
+        'name' => 'Arròs',
+        'purchased' => true,
+        'position' => 1,
+    ]);
+
+    $this->actingAs($user);
+
+    Livewire::test('pages::full-shopping-list')
+        ->assertSee('Fruita')
+        ->assertDontSee('Rebost')
+        ->assertSee('Poma')
+        ->assertDontSee('Arròs');
 });
 
 test('full shopping list can filter items by one or more shops', function () {

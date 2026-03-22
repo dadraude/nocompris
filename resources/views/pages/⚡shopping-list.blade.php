@@ -81,6 +81,48 @@ new #[Title('Llista de la compra')] class extends Component
     }
 
     /**
+     * Get the total number of visible pending items.
+     */
+    #[Computed]
+    public function pendingItemsCount(): int
+    {
+        return $this->shops->sum(
+            fn (Shop $shop): int => $shop->shoppingListItems->where('purchased', false)->count(),
+        );
+    }
+
+    /**
+     * Get the total number of visible purchased items.
+     */
+    #[Computed]
+    public function purchasedItemsCount(): int
+    {
+        return $this->shops->sum(
+            fn (Shop $shop): int => $shop->shoppingListItems->where('purchased', true)->count(),
+        );
+    }
+
+    /**
+     * Get the total number of visible items.
+     */
+    #[Computed]
+    public function totalVisibleItemsCount(): int
+    {
+        return $this->pendingItemsCount + $this->purchasedItemsCount;
+    }
+
+    /**
+     * Get the number of shops that still have visible pending items.
+     */
+    #[Computed]
+    public function pendingShopsCount(): int
+    {
+        return $this->shops->filter(
+            fn (Shop $shop): bool => $shop->visible_pending_items_count > 0,
+        )->count();
+    }
+
+    /**
      * Build the CSS variables used by the shop header accent.
      */
     public function shopHeaderStyle(Shop $shop): string
@@ -572,18 +614,23 @@ new #[Title('Llista de la compra')] class extends Component
                     </div>
                 </div>
 
-                <div class="grid grid-cols-3 gap-1.5 rounded-[1.25rem] border border-zinc-200/70 bg-white/80 p-2.5 backdrop-blur-sm dark:border-zinc-700/70 dark:bg-zinc-950/40">
-                    <div class="rounded-xl bg-zinc-50 px-2.5 py-2 dark:bg-zinc-900/80">
+                <div class="grid grid-cols-2 gap-1.5 rounded-[1.25rem] border border-zinc-200/70 bg-white/80 p-2.5 backdrop-blur-sm dark:border-zinc-700/70 dark:bg-zinc-950/40">
+                    <div class="rounded-[1.15rem] border border-zinc-200/70 bg-zinc-50 px-3 py-2.5 dark:border-zinc-700/70 dark:bg-zinc-900/80">
+                        <p class="text-[0.7rem] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">{{ __('Productes') }}</p>
+                        <div class="mt-1 flex items-baseline gap-2 text-zinc-900 dark:text-zinc-50">
+                            <p class="text-xl font-semibold tracking-[-0.02em] sm:text-2xl">
+                                {{ $this->pendingItemsCount }}/{{ $this->totalVisibleItemsCount }}
+                            </p>
+                            <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('pendents') }}</p>
+                        </div>
+                    </div>
+
+                    <div class="rounded-[1.15rem] border border-zinc-200/70 bg-zinc-50 px-3 py-2.5 dark:border-zinc-700/70 dark:bg-zinc-900/80">
                         <p class="text-[0.7rem] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">{{ __('Botigues') }}</p>
-                        <p class="text-xl font-semibold text-zinc-900 dark:text-zinc-50">{{ $this->shops->count() }}</p>
-                    </div>
-                    <div class="rounded-xl bg-zinc-50 px-2.5 py-2 dark:bg-zinc-900/80">
-                        <p class="text-[0.7rem] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">{{ __('Pendents') }}</p>
-                        <p class="text-xl font-semibold text-zinc-900 dark:text-zinc-50">{{ $this->shops->sum(fn ($shop) => $shop->shoppingListItems->where('purchased', false)->count()) }}</p>
-                    </div>
-                    <div class="rounded-xl bg-zinc-50 px-2.5 py-2 dark:bg-zinc-900/80">
-                        <p class="text-[0.7rem] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">{{ __('Comprats') }}</p>
-                        <p class="text-xl font-semibold text-zinc-900 dark:text-zinc-50">{{ $this->shops->sum(fn ($shop) => $shop->shoppingListItems->where('purchased', true)->count()) }}</p>
+                        <div class="mt-1 flex items-baseline gap-2 text-zinc-900 dark:text-zinc-50">
+                            <p class="text-xl font-semibold tracking-[-0.02em] sm:text-2xl">{{ $this->pendingShopsCount }}</p>
+                            <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('pendents') }}</p>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -904,10 +951,7 @@ new #[Title('Llista de la compra')] class extends Component
                 data-test="item-form-header"
                 @if ($itemShop) style="{{ $this->shopHeaderStyle($itemShop) }}" @endif
             >
-                <div class="space-y-2">
-                    <flux:heading size="lg">
-                        {{ $editingItemId === null ? __('Nou producte') : __('Edita el producte') }}
-                    </flux:heading>
+                <div>
                     <span
                         data-test="item-form-shop-pill"
                         @class([

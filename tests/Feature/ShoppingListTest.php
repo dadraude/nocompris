@@ -145,8 +145,55 @@ test('shop header shows the visible pending to total items ratio', function () {
 
     $this->get(route('dashboard'))
         ->assertSuccessful()
-        ->assertSeeInOrder(['1/2', 'Mercat central'])
-        ->assertDontSee('producte pendent');
+        ->assertDontSee('Per comprar')
+        ->assertSee('Productes')
+        ->assertSee('1/2')
+        ->assertSee('pendents')
+        ->assertSeeInOrder(['1/2', 'Mercat central']);
+});
+
+test('shopping list header emphasizes pending products and pending shops', function () {
+    $user = User::factory()->create();
+
+    $firstShop = Shop::factory()->for($user)->create([
+        'name' => 'Mercat central',
+        'position' => 1,
+    ]);
+
+    $secondShop = Shop::factory()->for($user)->create([
+        'name' => 'Forn del barri',
+        'position' => 2,
+    ]);
+
+    ShoppingListItem::factory()->for($firstShop)->for($user)->create([
+        'name' => 'Pasta',
+        'purchased' => false,
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($firstShop)->for($user)->create([
+        'name' => 'Tomàquet',
+        'purchased' => true,
+        'position' => 2,
+    ]);
+
+    ShoppingListItem::factory()->for($secondShop)->for($user)->create([
+        'name' => 'Pa',
+        'purchased' => false,
+        'position' => 1,
+    ]);
+
+    $this->actingAs($user);
+
+    $this->get(route('dashboard'))
+        ->assertSuccessful()
+        ->assertDontSee('Per comprar')
+        ->assertSee('Productes')
+        ->assertSee('2/3')
+        ->assertSee('Botigues')
+        ->assertSee('2')
+        ->assertDontSee('Comprats')
+        ->assertDontSee('Botigues totals');
 });
 
 test('shopping list hides purchased items by default and can reveal them on demand', function () {
@@ -390,6 +437,7 @@ test('new item modal uses the selected shop header color', function () {
         ->assertSee('data-test="item-form-shop-pill"', false)
         ->assertSee('app-shop-pill', false)
         ->assertSee('Mercat central')
+        ->assertDontSee('Nou producte')
         ->assertSee('--shop-header-bg: rgb(194, 65, 12)', false);
 });
 

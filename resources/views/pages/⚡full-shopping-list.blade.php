@@ -25,7 +25,7 @@ new #[Title('Llistat complet')] class extends Component
     public array $selectedShopIds = [];
 
     /**
-     * Get the shops and visible items for the authenticated user.
+     * Get the shops and visible pending items for the authenticated user.
      */
     #[Computed]
     public function shops(): Collection
@@ -34,9 +34,13 @@ new #[Title('Llistat complet')] class extends Component
 
         return Shop::query()
             ->visibleTo($user)
+            ->whereHas('shoppingListItems', fn ($query) => $query
+                ->visibleTo($user)
+                ->where('purchased', false))
             ->with([
                 'shoppingListItems' => fn ($query) => $query
                     ->visibleTo($user)
+                    ->where('purchased', false)
                     ->with('user'),
             ])
             ->orderBy('position')
@@ -74,7 +78,7 @@ new #[Title('Llistat complet')] class extends Component
     }
 
     /**
-     * Get every visible item in shop order.
+     * Get every visible pending item in shop order.
      */
     #[Computed]
     public function items(): SupportCollection
@@ -88,7 +92,7 @@ new #[Title('Llistat complet')] class extends Component
     }
 
     /**
-     * Get the visible items in alphabetical order.
+     * Get the visible pending items in alphabetical order.
      */
     #[Computed]
     public function alphabeticalItems(): SupportCollection
@@ -104,7 +108,7 @@ new #[Title('Llistat complet')] class extends Component
     }
 
     /**
-     * Get the visible items in the selected display order.
+     * Get the visible pending items in the selected display order.
      */
     #[Computed]
     public function orderedItems(): SupportCollection
@@ -281,12 +285,8 @@ new #[Title('Llistat complet')] class extends Component
     <div class="mx-auto flex w-full max-w-[90rem] flex-col gap-3 px-2.5 pb-3 pt-1.5 sm:gap-4 sm:px-4 sm:pb-4 sm:pt-2 lg:px-5 xl:px-6">
         <div class="overflow-hidden rounded-xl border border-zinc-200/80 bg-linear-to-br from-white via-zinc-50 to-stone-100 shadow-sm dark:border-zinc-700/70 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 sm:rounded-2xl">
             <div class="flex flex-col gap-4 px-3 py-3 sm:px-4 sm:py-4 lg:flex-row lg:items-end lg:justify-between">
-                <div class="max-w-2xl space-y-1">
-                    <p class="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">{{ __('Vista global') }}</p>
+                <div class="max-w-2xl">
                     <flux:heading size="xl" level="1">{{ __('Llistat complet') }}</flux:heading>
-                    <flux:subheading class="max-w-2xl text-sm">
-                        {{ __('Consulta tots els productes visibles d’un cop, ordenats per botiga o alfabèticament, i marca’ls com a comprats sense obrir cada botiga.') }}
-                    </flux:subheading>
                 </div>
 
                 <div class="grid gap-3 lg:min-w-[24rem]">
@@ -350,13 +350,13 @@ new #[Title('Llistat complet')] class extends Component
             <div class="rounded-xl border border-dashed border-zinc-300 bg-white/80 px-4 py-6 text-center shadow-sm dark:border-zinc-700 dark:bg-zinc-900/60 sm:rounded-2xl">
                 <flux:heading size="lg">
                     {{ $this->hasActiveShopFilters
-                        ? __('No hi ha productes visibles a les botigues seleccionades')
-                        : __('Encara no tens productes visibles') }}
+                        ? __('No hi ha productes pendents a les botigues seleccionades')
+                        : __('Encara no tens productes pendents') }}
                 </flux:heading>
                 <flux:text class="mt-3 text-zinc-500 dark:text-zinc-400">
                     {{ $this->hasActiveShopFilters
                         ? __('Canvia la selecció de botigues o mostra-les totes per recuperar la vista global.')
-                        : __('Quan afegeixis productes a la llista, els veuràs aquí amb una vista compacta.') }}
+                        : __('Quan tinguis productes pendents a la llista, els veuràs aquí amb una vista compacta.') }}
                 </flux:text>
 
                 @if ($this->hasActiveShopFilters)
@@ -375,18 +375,10 @@ new #[Title('Llistat complet')] class extends Component
                 class="overflow-hidden rounded-xl border border-zinc-200/80 bg-white/85 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-900/65 sm:rounded-2xl"
             >
                 <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200/70 px-3 py-3 dark:border-zinc-700/70 sm:px-4">
-                    <div class="space-y-1">
-                        <p class="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
-                            {{ __('Ordre actual') }}
-                        </p>
+                    <div>
                         <flux:heading size="lg">
                             {{ $sortMode === 'alphabetical' ? __('Productes de la A a la Z') : __('Productes segons l’ordre de botiga') }}
                         </flux:heading>
-                        <p class="text-sm text-zinc-500 dark:text-zinc-400">
-                            {{ $this->hasActiveShopFilters
-                                ? __('Filtrant :count botigues', ['count' => $this->selectedShops->count()])
-                                : __('Mostrant totes les botigues visibles') }}
-                        </p>
                     </div>
 
                     <span class="rounded-full bg-zinc-100 px-2.5 py-1 text-sm font-medium text-zinc-600 dark:bg-zinc-800 dark:text-zinc-200">
