@@ -30,6 +30,8 @@ new #[Title('Llista de la compra')] class extends Component
 
     public ?int $editingItemId = null;
 
+    public ?int $deletingItemId = null;
+
     public bool $showPurchased = false;
 
     public string $shopName = '';
@@ -59,6 +61,7 @@ new #[Title('Llista de la compra')] class extends Component
                 'user',
                 'shoppingListItems' => fn ($query) => $query
                     ->visibleTo($user)
+                    ->relevantForList()
                     ->with('user'),
             ])
             ->withCount([
@@ -81,6 +84,21 @@ new #[Title('Llista de la compra')] class extends Component
         }
 
         return $this->shops->firstWhere('id', $this->editingShopId);
+    }
+
+    /**
+     * Get the item currently being edited, if available.
+     */
+    #[Computed]
+    public function editingItem(): ?ShoppingListItem
+    {
+        if ($this->editingItemId === null) {
+            return null;
+        }
+
+        return $this->shops
+            ->flatMap(fn (Shop $shop): Collection => $shop->shoppingListItems)
+            ->firstWhere('id', $this->editingItemId);
     }
 
     /**
@@ -259,6 +277,18 @@ new #[Title('Llista de la compra')] class extends Component
     }
 
     /**
+     * Prepare the confirmation modal to delete an item.
+     */
+    public function confirmDeletingItem(int $itemId): void
+    {
+        $item = $this->findItem($itemId);
+
+        $this->authorize('delete', $item);
+
+        $this->deletingItemId = $item->id;
+    }
+
+    /**
      * Persist a new or existing item.
      */
     public function saveItem(): void
@@ -412,6 +442,24 @@ new #[Title('Llista de la compra')] class extends Component
     }
 
     /**
+     * Soft delete the selected item.
+     */
+    public function deleteItem(): void
+    {
+        $item = $this->findItem((int) $this->deletingItemId);
+
+        $this->authorize('delete', $item);
+
+        $item->delete();
+
+        $this->resetItemForm();
+        $this->deletingItemId = null;
+        $this->modal('delete-item')->close();
+        $this->modal('item-form')->close();
+        $this->dispatch('item-deleted');
+    }
+
+    /**
      * Re-add a recently purchased item to the end of its shop list.
      */
     public function repurchaseItem(int $itemId): void
@@ -481,6 +529,7 @@ new #[Title('Llista de la compra')] class extends Component
             ? $this->visibleItemsForShop($shopFromCollection)
             : $shop->shoppingListItems()
                 ->visibleTo(Auth::user())
+                ->relevantForList()
                 ->with('user')
                 ->get()
                 ->when(
@@ -579,6 +628,7 @@ new #[Title('Llista de la compra')] class extends Component
         $this->resetValidation();
         $this->editingItemId = null;
         $this->addingItemShopId = null;
+        $this->deletingItemId = null;
         $this->newItemName = '';
         $this->newItemQuantity = '1';
         $this->newItemQuantityUnit = ShoppingListItemQuantityUnit::Unit->value;
@@ -796,6 +846,7 @@ new #[Title('Llista de la compra')] class extends Component
                             <x-action-message on="shop-deleted">{{ __('Botiga eliminada.') }}</x-action-message>
                             <x-action-message on="item-added">{{ __('Producte afegit.') }}</x-action-message>
                             <x-action-message on="item-updated">{{ __('Quantitat actualitzada.') }}</x-action-message>
+                            <x-action-message on="item-deleted">{{ __('Producte eliminat.') }}</x-action-message>
                         </div>
 
                         <flux:button
@@ -1291,14 +1342,31 @@ new #[Title('Llista de la compra')] class extends Component
                 </div>
             </div>
 
-            <div class="flex justify-end gap-2">
-                <flux:modal.close>
-                    <flux:button variant="filled">{{ __('Cancel·la') }}</flux:button>
-                </flux:modal.close>
+            <div class="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
+                @if ($editingItemId !== null && $this->editingItem !== null && Auth::user()->can('delete', $this->editingItem))
+                    <flux:modal.trigger name="delete-item">
+                        <flux:button
+                            variant="danger"
+                            icon="trash"
+                            data-test="delete-item-button"
+                            wire:click="confirmDeletingItem({{ $this->editingItem->id }})"
+                        >
+                            {{ __('Eliminar producte') }}
+                        </flux:button>
+                    </flux:modal.trigger>
+                @else
+                    <span></span>
+                @endif
 
-                <flux:button variant="primary" type="submit">
-                    {{ $editingItemId === null ? __('Afegir') : __('Desa canvis') }}
-                </flux:button>
+                <div class="flex justify-end gap-2">
+                    <flux:modal.close>
+                        <flux:button variant="filled">{{ __('Cancel·la') }}</flux:button>
+                    </flux:modal.close>
+
+                    <flux:button variant="primary" type="submit">
+                        {{ $editingItemId === null ? __('Afegir') : __('Desa canvis') }}
+                    </flux:button>
+                </div>
             </div>
         </form>
     </flux:modal>
@@ -1318,6 +1386,27 @@ new #[Title('Llista de la compra')] class extends Component
                 </flux:modal.close>
 
                 <flux:button variant="danger" wire:click="deleteShop">
+                    {{ __('Eliminar') }}
+                </flux:button>
+            </div>
+        </div>
+    </flux:modal>
+
+    <flux:modal name="delete-item" class="max-w-lg">
+        <div class="space-y-4">
+            <div class="space-y-2">
+                <flux:heading size="lg">{{ __('Eliminar producte') }}</flux:heading>
+                <flux:text class="text-zinc-500 dark:text-zinc-400">
+                    {{ __('Aquest producte quedarà marcat com a eliminat i deixarà d’aparèixer a la llista.') }}
+                </flux:text>
+            </div>
+
+            <div class="flex justify-end gap-2">
+                <flux:modal.close>
+                    <flux:button variant="filled">{{ __('Cancel·la') }}</flux:button>
+                </flux:modal.close>
+
+                <flux:button variant="danger" wire:click="deleteItem">
                     {{ __('Eliminar') }}
                 </flux:button>
             </div>

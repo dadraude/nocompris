@@ -273,6 +273,35 @@ test('full shopping list can filter items by purchase state', function () {
         ->assertSee('Iogurt comprat');
 });
 
+test('full shopping list ignores products purchased over a week ago even when purchased items are visible', function () {
+    $user = User::factory()->create();
+
+    $shop = Shop::factory()->for($user)->create([
+        'name' => 'Mercat',
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($user)->create([
+        'name' => 'Formatge pendent',
+        'purchased' => false,
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($user)->create([
+        'name' => 'Iogurt antic',
+        'purchased' => true,
+        'purchased_at' => now()->subDays(8),
+        'position' => 2,
+    ]);
+
+    $this->actingAs($user);
+
+    $this->get(route('shopping-list.full', ['purchase' => 'all']))
+        ->assertSuccessful()
+        ->assertSee('Formatge pendent')
+        ->assertDontSee('Iogurt antic');
+});
+
 test('full shopping list can toggle the pending-only filter on and off', function () {
     $user = User::factory()->create();
 

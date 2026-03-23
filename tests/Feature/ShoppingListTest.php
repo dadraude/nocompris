@@ -197,6 +197,39 @@ test('shopping list header emphasizes pending products and pending shops', funct
         ->assertDontSee('Botigues totals');
 });
 
+test('shopping list ignores products purchased over a week ago in pending totals and purchased visibility', function () {
+    $user = User::factory()->create();
+    $shop = Shop::factory()->for($user)->create([
+        'name' => 'Mercat central',
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($user)->create([
+        'name' => 'Pasta',
+        'purchased' => false,
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($user)->create([
+        'name' => 'Tomàquet antic',
+        'purchased' => true,
+        'purchased_at' => now()->subDays(8),
+        'position' => 2,
+    ]);
+
+    $this->actingAs($user);
+
+    $this->get(route('dashboard'))
+        ->assertSuccessful()
+        ->assertSee('1/1')
+        ->assertDontSee('Tomàquet antic');
+
+    Livewire::test('pages::shopping-list')
+        ->assertDontSee('Tomàquet antic')
+        ->call('togglePurchasedVisibility')
+        ->assertDontSee('Tomàquet antic');
+});
+
 test('shopping list surfaces purchased items as repurchase suggestions before revealing them in the list', function () {
     $user = User::factory()->create();
     $shop = Shop::factory()->for($user)->create([
@@ -213,6 +246,7 @@ test('shopping list surfaces purchased items as repurchase suggestions before re
     ShoppingListItem::factory()->for($shop)->for($user)->create([
         'name' => 'Tomàquet',
         'purchased' => true,
+        'purchased_at' => now(),
         'position' => 2,
     ]);
 
@@ -645,6 +679,42 @@ test('group member can edit a public item name and quantity from the modal', fun
 
     expect($item->refresh()->name)->toBe('Farina integral');
     expect((float) $item->refresh()->quantity)->toBe(5.0);
+});
+
+test('user can soft delete an item from the shopping list', function () {
+    $user = User::factory()->create();
+    $shop = Shop::factory()->for($user)->create([
+        'name' => 'Mercat central',
+        'position' => 1,
+    ]);
+
+    $item = ShoppingListItem::factory()->for($shop)->for($user)->create([
+        'name' => 'Formatge',
+        'purchased' => false,
+        'position' => 1,
+    ]);
+
+    $this->actingAs($user);
+
+    $response = Livewire::test('pages::shopping-list')
+        ->call('startEditingItem', $item->id)
+        ->assertSee('data-test="delete-item-button"', false)
+        ->call('confirmDeletingItem', $item->id)
+        ->call('deleteItem');
+
+    $response->assertHasNoErrors();
+
+    $this->assertSoftDeleted('shopping_list_items', [
+        'id' => $item->id,
+    ]);
+
+    expect(ShoppingListItem::query()->find($item->id))->toBeNull();
+    expect(ShoppingListItem::withTrashed()->find($item->id)?->deleted_at)->not->toBeNull();
+
+    $this->get(route('dashboard'))
+        ->assertSuccessful()
+        ->assertSee('Mercat central')
+        ->assertDontSee('Formatge');
 });
 
 test('group member can edit a public item to use kilograms from the modal', function () {

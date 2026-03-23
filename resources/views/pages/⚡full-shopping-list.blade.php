@@ -40,6 +40,7 @@ new #[Title('Llistat complet')] class extends Component
             ->with([
                 'shoppingListItems' => fn ($query) => $query
                     ->visibleTo($user)
+                    ->relevantForList()
                     ->with('user'),
             ])
             ->orderBy('position')

@@ -9,11 +9,14 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ShoppingListItem extends Model
 {
     /** @use HasFactory<ShoppingListItemFactory> */
-    use HasFactory;
+    use HasFactory, SoftDeletes;
+
+    private const RECENT_PURCHASE_RETENTION_DAYS = 7;
 
     /**
      * The attributes that are mass assignable.
@@ -78,6 +81,22 @@ class ShoppingListItem extends Model
     }
 
     /**
+     * Determine whether a purchased item should still appear in active lists.
+     */
+    public function countsTowardActiveList(): bool
+    {
+        if (! $this->purchased) {
+            return true;
+        }
+
+        if ($this->purchased_at === null) {
+            return true;
+        }
+
+        return $this->purchased_at->gte(now()->subDays(self::RECENT_PURCHASE_RETENTION_DAYS));
+    }
+
+    /**
      * Get the shop that owns the item.
      */
     public function shop(): BelongsTo
@@ -105,6 +124,23 @@ class ShoppingListItem extends Model
                     ->where('user_id', $user->id)
                     ->orWhere('visibility', ShoppingListItemVisibility::Public->value);
             });
+    }
+
+    /**
+     * Scope the query to items that should remain in active shopping views.
+     */
+    public function scopeRelevantForList(Builder $query): Builder
+    {
+        return $query->where(function (Builder $query): void {
+            $query->where('purchased', false)
+                ->orWhere(function (Builder $query): void {
+                    $query->where('purchased', true)
+                        ->where(function (Builder $query): void {
+                            $query->whereNull('purchased_at')
+                                ->orWhere('purchased_at', '>=', now()->subDays(self::RECENT_PURCHASE_RETENTION_DAYS));
+                        });
+                });
+        });
     }
 
     /**
