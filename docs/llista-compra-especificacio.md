@@ -1,219 +1,273 @@
-# Llista de la compra per botigues – Especificació
+# Llista de la compra per botigues – Especificació actual
 
-**Data:** Març 2025
+**Data:** Març 2026
 
----
+Aquest document descriu el comportament actual implementat de la llista de la compra a NoCompris. No és una proposta de v1: és una referència funcional del que avui fa l’app.
 
-## 1. Objectius i abast
+## 1. Objectiu i abast
 
-### 1.1 Funcionalitats mínimes
+La llista de la compra de NoCompris està pensada per mantenir compres compartides amb context de botiga, visibilitat per grup i una experiència ràpida des del mòbil o l’escriptori.
 
-- Crear, editar i eliminar **botigues** (nom, opcionalment ordre o color).
-- Per cada botiga: **afegir productes** (nom de l’ítem i **quantitat**) a la llista.
-- **Marcar / desmarcar** productes com a comprats (toggle).
+El mòdul actual cobreix:
 
-### 1.2 Context tècnic
+- dashboard principal agrupat per botigues;
+- vista global plana de tots els productes visibles;
+- gestió de botigues amb color i ordre;
+- productes públics i privats;
+- quantitats amb unitat;
+- seguiment de comprats i recompra ràpida;
+- gestió diferenciada per a usuaris normals i usuaris `master`.
 
-- **Stack:** Laravel 12, Livewire 4, Flux UI, Alpine.js.
-- **Autenticació:** Fortify; totes les dades són per usuari autenticat (les botigues i ítems pertanyen a l’usuari que ha iniciat sessió).
+## 2. Context funcional
 
----
+### 2.1 Accés i rols
 
-## 2. Model de dades
+- L’entrada principal és per correu electrònic amb codi temporal.
+- L’usuari pot demanar recordar la sessió al dispositiu actual.
+- Si té 2FA activat, el repte es demana després de validar el codi.
+- Els usuaris normals entren al `dashboard`.
+- Els usuaris `master` entren al panell `master` i no participen en el flux normal de compra.
 
-### 2.1 Entitats
+### 2.2 Visibilitat compartida
 
-**Botiga (Shop)**
+- Les botigues poden ser personals o compartides amb el grup de l’usuari.
+- Un usuari veu les seves botigues i també les botigues del seu grup.
+- Els productes públics els pot veure qualsevol membre que vegi la botiga.
+- Els productes privats només els veu i els edita la persona que els ha creat.
 
-| Camp        | Tipus     | Descripció                    |
-|------------|-----------|-------------------------------|
-| `id`       | bigint PK | Identificador                  |
-| `user_id`  | bigint FK | Propietari (usuari)           |
-| `name`     | string    | Nom de la botiga              |
-| `position` | int       | Ordre de visualització        |
-| `created_at` / `updated_at` | timestamp | |
+## 3. Model funcional de dades
 
-- **Relacions:** un usuari té moltes botigues; una botiga té molts ítems.
+### 3.1 Botiga (`Shop`)
 
-**Item de la llista (ShoppingListItem)**
+| Camp | Tipus | Descripció |
+|------|-------|------------|
+| `id` | bigint PK | Identificador |
+| `user_id` | bigint FK | Propietari de la botiga |
+| `user_group_id` | bigint FK nullable | Grup amb qui es comparteix |
+| `name` | string | Nom visible de la botiga |
+| `color` | string | Color de capçalera i accent |
+| `position` | int | Ordre visible al dashboard |
+| `created_at` / `updated_at` | timestamp | Metadades |
 
-| Camp        | Tipus     | Descripció                          |
-|------------|-----------|-------------------------------------|
-| `id`       | bigint PK | Identificador                        |
-| `shop_id`  | bigint FK | Botiga a la qual pertany l’ítem      |
-| `name`     | string    | Nom del producte                     |
-| `quantity` | int       | Quantitat (per defecte 1)            |
-| `purchased`| boolean   | Si està marcat com a comprat         |
-| `position` | int       | Ordre dins la botiga                 |
-| `created_at` / `updated_at` | timestamp | |
+Comportament clau:
 
-- **Relacions:** pertany a una botiga.
+- es crea al final de l’ordre visible;
+- es pot reordenar entre botigues visibles;
+- només la persona propietària la pot editar o eliminar;
+- no es pot eliminar si encara té productes pendents visibles per a qui vol esborrar-la.
 
-### 2.2 Diagrama de relacions
+### 3.2 Producte (`ShoppingListItem`)
+
+| Camp | Tipus | Descripció |
+|------|-------|------------|
+| `id` | bigint PK | Identificador |
+| `shop_id` | bigint FK | Botiga propietària |
+| `user_id` | bigint FK | Usuari creador |
+| `name` | string | Nom del producte |
+| `quantity` | decimal | Quantitat mostrada |
+| `quantity_unit` | enum | `u`, `kg`, `g`, `l`, `cl` |
+| `visibility` | enum | `public` o `private` |
+| `purchased` | boolean | Estat de compra |
+| `purchased_at` | timestamp nullable | Data i hora de compra |
+| `position` | int | Ordre dins la botiga |
+| `deleted_at` | timestamp nullable | Eliminació suau |
+| `created_at` / `updated_at` | timestamp | Metadades |
+
+Comportament clau:
+
+- es crea al final de la seva botiga;
+- la unitat condiciona el format i si s’accepten decimals;
+- els productes públics es poden editar des de qualsevol usuari amb accés a la botiga;
+- els productes privats només els pot editar qui els ha creat;
+- eliminar un producte és una eliminació suau;
+- marcar o desmarcar comprat sincronitza `purchased` i `purchased_at`.
+
+### 3.3 Diagrama de relacions
 
 ```mermaid
 erDiagram
-  User ||--o{ Shop : has
+  UserGroup ||--o{ User : contains
+  User ||--o{ Shop : owns
+  UserGroup ||--o{ Shop : shares
   Shop ||--o{ ShoppingListItem : contains
+  User ||--o{ ShoppingListItem : creates
+
   User {
     int id
     string name
     string email
+    bool is_master
+    int user_group_id
+  }
+  UserGroup {
+    int id
+    string name
   }
   Shop {
     int id
     int user_id
+    int user_group_id
     string name
+    string color
     int position
   }
   ShoppingListItem {
     int id
     int shop_id
+    int user_id
     string name
-    int quantity
+    decimal quantity
+    string quantity_unit
+    string visibility
     bool purchased
+    datetime purchased_at
     int position
+    datetime deleted_at
   }
 ```
 
-### 2.3 Abast de les dades
+## 4. Pantalles i comportaments
 
-Les llistes són **per usuari**: totes les botigues i ítems estan associats a `user_id` (via `shops.user_id` i `shops.id` → `shopping_list_items.shop_id`). L’autorització (policies) ha de garantir que un usuari només pugui veure i modificar les seves botigues i ítems.
+### 4.1 Dashboard de compra (`/dashboard`)
 
----
+És la vista principal per a usuaris normals.
 
-## 3. Pantalles i fluxos
+Inclou:
 
-### 3.1 Llista principal
+- capçalera amb estadístiques de productes pendents i botigues pendents;
+- accions globals per mostrar o amagar comprats i crear una botiga nova;
+- llistat de botigues ordenat per `position`;
+- drag and drop per reordenar botigues visibles;
+- cada botiga amb comptador `pendents/total`;
+- cada botiga amb modal d’edició i canvi de color;
+- acció per afegir productes dins de la botiga;
+- drag and drop per reordenar productes visibles;
+- toggle per marcar productes com a comprats;
+- edició del producte des de modal;
+- eliminació suau del producte des de modal.
 
-- Llista de botigues (ordenades per `position`).
-- Cada botiga es pot **expandir / col·lapsar** per veure o amagar els productes (interacció al client).
+Regles de visualització:
 
-### 3.2 Vista per botiga
+- per defecte només es mostren productes pendents;
+- si s’activa `Mostra comprats`, els comprats apareixen després dels pendents;
+- una botiga sense pendents visibles continua mostrant-se, però amb estat atenuat;
+- una botiga sense pendents mostra un missatge buit però pot mantenir suggeriments de recompra;
+- els productes comprats fa més de 7 dies desapareixen de la vista encara que es mostrin comprats.
 
-- **Títol:** nom de la botiga.
-- **Llista d’ítems:** cada ítem mostra nom, **quantitat** i checkbox “comprat”.
-- **Afegir producte:** camp (o formulari inline) per introduir nom + quantitat i afegir un nou ítem a aquesta botiga.
+### 4.2 Suggeriments de recompra
 
-### 3.3 Gestió de botigues
+Cada botiga pot mostrar una secció `Torna a afegir`.
 
-- **Afegir nova botiga:** acció que obre un formulari (modal o inline) per introduir el nom; opcionalment ordre o color.
-- **Editar nom:** edició del nom de la botiga (inline o modal).
-- **Eliminar:** eliminar la botiga, amb confirmació si es considera necessari.
+Regles:
 
-### 3.4 Gestió d’ítems
+- només es construeix amb productes visibles comprats recentment;
+- agrupa duplicats pel nom normalitzat;
+- no ofereix productes que ja existeixen com a pendents a la mateixa botiga;
+- en recomprar, es crea un producte nou pendent mantenint nom, quantitat, unitat i visibilitat;
+- la recomanda nova queda al final de la botiga.
 
-- **Afegir ítem:** nom + quantitat a una botiga concreta.
-- **Editar quantitat:** canviar la quantitat d’un ítem existent.
-- **Marcar / desmarcar comprat:** toggle que persisteix l’estat.
-- **Eliminar ítem:** opcional en la primera versió (v1).
+### 4.3 Vista global (`/full-shopping-list`)
 
-El document es limita a descriure pantalles i accions; els detalls d’implementació (Blade, Livewire, Alpine) es resolen en desenvolupament.
+És una vista plana de tots els productes visibles.
 
----
+Inclou:
 
-## 4. Principis d’interfície (UI/UX)
+- selector `Organitza per` amb ordre per botiga o ordre alfabètic;
+- botó per mostrar o amagar comprats;
+- filtres per botiga amb selecció múltiple;
+- comptador de productes visibles segons filtres actius;
+- toggle de compra directament sobre cada targeta;
+- badge de botiga amb color i inicial.
 
-L’aplicació ha de tenir una **interfície molt neta i fàcil d’utilitzar**.
+Regles:
 
-### 4.1 Neta
+- la vista no agrupa productes per botiga;
+- quan només es mostren pendents, els comprats queden ocults;
+- quan es mostren tots, els pendents continuen abans dels comprats;
+- els filtres només treballen amb botigues visibles carregades a la pàgina;
+- els comprats antics també queden exclosos perquè la vista reutilitza la mateixa regla de rellevància.
 
-- Poc soroll visual.
-- Espai en blanc adequat.
-- Jerarquia clara: botigues → ítems.
-- Només els controls necessaris a la vista.
-- Consistència amb Flux UI i el layout existent de l’aplicació.
+### 4.4 Gestió `master` (`/master`)
 
-### 4.2 Fàcil d’utilitzar
+És l’espai exclusiu per a usuaris `master`.
 
-- Accions principals evidents (afegir ítem, marcar comprat).
-- Mínim de passos per fer les tasques habituals.
-- Etiquetes i placeholders clars.
-- Feedback ràpid (client-side quan sigui possible).
-- Gestió d’errors comprensible.
+Inclou:
 
-### 4.3 Implementació
+- creació de grups;
+- alta d’usuaris;
+- assignació o desassignació d’usuaris a grups;
+- indicació de qui és `master`.
 
-- Fer servir els components Flux existents.
-- Tailwind per al layout i l’espaiat.
-- Evitar pantalles sobrecarregades o formularis innecessàriament llargs.
+Regles:
 
----
+- un usuari no `master` rep `403`;
+- un usuari `master` és redirigit aquí després d’entrar;
+- un usuari `master` no pot crear botigues ni usar el dashboard normal.
 
-## 5. Criteri client vs servidor (fluidesa)
+### 4.5 Configuració d’usuari
 
-Tota la interacció que **no hagi de ser estrictament amb el servidor** es fa **al dispositiu** (Alpine.js) per millorar la fluidesa i la sensació de resposta immediata.
+L’app disposa d’un espai de configuració amb:
 
-### 5.1 Al servidor (Livewire)
+- perfil;
+- canvi de contrasenya;
+- aparença;
+- autenticació en dos factors.
 
-S’usa Livewire **només** quan cal persistir, validar o obtenir dades del servidor:
+## 5. Criteris de negoci
 
-| Acció | Motiu |
-|-------|--------|
-| Crear / editar / eliminar botiga | Persistència i autorització |
-| Afegir / eliminar ítem (nom + quantitat) | Persistència |
-| Editar quantitat d’un ítem | Persistència |
-| Marcar o desmarcar “comprat” | Persistència de l’estat |
-| Carregar llista de botigues i ítems | Dades des del servidor |
+### 5.1 Visibilitat
 
-### 5.2 Al client (Alpine.js)
+- `Shop::visibleTo()` és la font de veritat de quines botigues es poden veure.
+- `ShoppingListItem::visibleTo()` és la font de veritat de quins productes es poden veure.
+- La UI no ha de replicar manualment aquestes regles si el model o la policy ja les resol.
 
-Es fa al client tot el que no requereixi anar al servidor:
+### 5.2 Productes comprats
 
-- Expandir / col·lapsar seccions de botigues (estat local).
-- Obrir / tancar modals o formularis inline (crear botiga, afegir ítem).
-- Feedback visual immediat (p. ex. estil del checkbox “comprat” abans o mentre es confirma amb Livewire).
-- Edició temporal de text (inline) abans de desar.
-- Ordenar visualment (drag), si més endavant s’afegeix, mantenint la persistència amb Livewire.
+- Un producte comprat continua sent rellevant durant 7 dies.
+- Passat aquest termini, deixa de comptar per totals i desapareix de les vistes actives.
+- `ShoppingListItem::scopeRelevantForList()` és la regla compartida per dashboard i vista global.
 
-Això maximitza la interacció al dispositiu i limita Livewire als canvis que requereixen base de dades o lògica al servidor.
+### 5.3 Quantitats i unitats
 
----
+- `u` es mostra sense decimals útils.
+- `kg`, `g`, `l` i `cl` admeten decimals.
+- `ShoppingListItem::formattedQuantity()` és la font de veritat del format visible.
 
-## 6. Stack i convencions
+### 5.4 Permisos
 
-### 6.1 Backend
+- `ShopPolicy` governa creació, edició, reordenació i eliminació de botigues.
+- `ShoppingListItemPolicy` governa creació, edició, reordenació i eliminació d’ítems.
+- Els permisos d’edició d’un producte depenen de si és públic o privat.
 
-- Laravel 12, Eloquent, migracions.
-- Policies per autorització (botigues i ítems de l’usuari).
+## 6. Experiència d’ús
 
-### 6.2 Frontend
+### 6.1 Disseny
 
-- Blade, Flux UI (`flux:`), Alpine.js per l’estat local i la interacció ràpida.
+- l’app prioritza una UI compacta i directa;
+- l’estat principal és pensat per a ús ràpid des del mòbil;
+- el color de cada botiga ajuda a reconèixer el context visual.
 
-### 6.3 Livewire
+### 6.2 PWA
 
-- Components puntuals per accions que toquin la base de dades: formularis de botiga/ítem, toggle “comprat”.
-- La pàgina principal pot ser una vista Blade que inclou components Livewire on cal.
+NoCompris està preparada com a PWA.
 
-### 6.4 Rutes
+Inclou:
 
-- Tot dins del middleware `auth` (i `verified` si s’aplica).
-- Ruta principal tipus `/dashboard` o `/llista` que mostra la llista agrupada per botigues.
+- `manifest.webmanifest`;
+- `sw.js`;
+- icones PWA;
+- pantalla de càrrega global;
+- splash screen en dispositius compatibles.
 
----
+## 7. Referència de proves
 
-## 7. Tests (referència)
+Els comportaments descrits en aquest document es validen principalment a:
 
-Es preveu cobrir amb **Pest** (feature tests):
+- `tests/Feature/ShoppingListTest.php`
+- `tests/Feature/FullShoppingListTest.php`
+- `tests/Feature/MasterAccessTest.php`
+- `tests/Feature/Auth/AuthenticationTest.php`
+- `tests/Feature/Settings/*.php`
+- `tests/Feature/PwaSupportTest.php`
 
-- Creació de botiga.
-- Afegir ítem (amb quantitat).
-- Editar quantitat d’un ítem.
-- Marcar com a comprat.
-- Autorització: l’usuari només veu i pot modificar les seves botigues i ítems.
-
-Això es considera criteri d’acceptació; la implementació dels tests es fa en la fase de desenvolupament.
-
----
-
-## 8. Següents passos (implementació)
-
-1. **Migracions:** taules `shops` i `shopping_list_items` amb els camps i claus foranes indicats.
-2. **Models:** `Shop` i `ShoppingListItem` amb relacions i, si cal, casts.
-3. **Policies:** autorització per usuari sobre les seves botigues i ítems.
-4. **Rutes i controladors / Livewire:** pàgina principal i accions (crear/editar/eliminar botiga, afegir/editar/eliminar ítem, toggle comprat).
-5. **Vistes:** Blade + Flux + Alpine segons les pantalles i els principis d’interfície descrits.
-6. **Tests:** Pest per les accions i l’autorització.
-
-Aquest document serveix de punt de partida i referència durant tot el desenvolupament.
+Aquest document s’ha de mantenir alineat amb aquests tests. Si es canvia el comportament i els tests s’actualitzen, aquesta especificació també s’ha d’actualitzar.
