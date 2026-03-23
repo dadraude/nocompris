@@ -840,49 +840,51 @@ new #[Title('Llista de la compra')] class extends Component
                         </flux:subheading>
                     </div>
 
-                    <div class="flex flex-wrap items-center gap-2 sm:justify-end lg:justify-end">
-                        <div class="hidden items-center gap-2 xl:flex">
-                            <x-action-message on="shop-saved">{{ __('Botiga desada.') }}</x-action-message>
-                            <x-action-message on="shop-deleted">{{ __('Botiga eliminada.') }}</x-action-message>
-                            <x-action-message on="item-added">{{ __('Producte afegit.') }}</x-action-message>
-                            <x-action-message on="item-updated">{{ __('Quantitat actualitzada.') }}</x-action-message>
-                            <x-action-message on="item-deleted">{{ __('Producte eliminat.') }}</x-action-message>
+                    <div class="grid grid-cols-2 gap-1.5 rounded-[1.25rem] border border-zinc-200/70 bg-white/80 p-2.5 backdrop-blur-sm dark:border-zinc-700/70 dark:bg-zinc-950/40 lg:min-w-[22rem]" data-test="shopping-list-header-stats">
+                        <div class="rounded-[1.15rem] border border-zinc-200/70 bg-zinc-50 px-3 py-2.5 dark:border-zinc-700/70 dark:bg-zinc-900/80">
+                            <p class="text-[0.7rem] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">{{ __('Productes') }}</p>
+                            <div class="mt-1 flex items-baseline gap-2 text-zinc-900 dark:text-zinc-50">
+                                <p class="text-xl font-semibold tracking-[-0.02em] sm:text-2xl">
+                                    {{ $this->pendingItemsCount }}/{{ $this->totalVisibleItemsCount }}
+                                </p>
+                                <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('pendents') }}</p>
+                            </div>
                         </div>
 
+                        <div class="rounded-[1.15rem] border border-zinc-200/70 bg-zinc-50 px-3 py-2.5 dark:border-zinc-700/70 dark:bg-zinc-900/80">
+                            <p class="text-[0.7rem] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">{{ __('Botigues') }}</p>
+                            <div class="mt-1 flex items-baseline gap-2 text-zinc-900 dark:text-zinc-50">
+                                <p class="text-xl font-semibold tracking-[-0.02em] sm:text-2xl">{{ $this->pendingShopsCount }}</p>
+                                <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('pendents') }}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
+                    <div class="hidden items-center gap-2 xl:flex">
+                        <x-action-message on="shop-saved">{{ __('Botiga desada.') }}</x-action-message>
+                        <x-action-message on="shop-deleted">{{ __('Botiga eliminada.') }}</x-action-message>
+                        <x-action-message on="item-added">{{ __('Producte afegit.') }}</x-action-message>
+                        <x-action-message on="item-updated">{{ __('Quantitat actualitzada.') }}</x-action-message>
+                        <x-action-message on="item-deleted">{{ __('Producte eliminat.') }}</x-action-message>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2" data-test="shopping-list-header-actions">
                         <flux:button
                             :variant="$showPurchased ? 'filled' : 'outline'"
                             size="sm"
                             wire:click="togglePurchasedVisibility"
-                            class="w-full sm:w-auto"
+                            class="w-full"
                         >
                             {{ $showPurchased ? __('Amaga comprats') : __('Mostra comprats') }}
                         </flux:button>
 
-                        <flux:modal.trigger name="shop-form" class="w-full sm:w-auto">
-                            <flux:button variant="primary" size="sm" wire:click="startCreatingShop" class="w-full sm:w-auto">
+                        <flux:modal.trigger name="shop-form" class="w-full">
+                            <flux:button variant="primary" size="sm" wire:click="startCreatingShop" class="w-full">
                                 {{ __('Nova botiga') }}
                             </flux:button>
                         </flux:modal.trigger>
-                    </div>
-                </div>
-
-                <div class="grid grid-cols-2 gap-1.5 rounded-[1.25rem] border border-zinc-200/70 bg-white/80 p-2.5 backdrop-blur-sm dark:border-zinc-700/70 dark:bg-zinc-950/40">
-                    <div class="rounded-[1.15rem] border border-zinc-200/70 bg-zinc-50 px-3 py-2.5 dark:border-zinc-700/70 dark:bg-zinc-900/80">
-                        <p class="text-[0.7rem] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">{{ __('Productes') }}</p>
-                        <div class="mt-1 flex items-baseline gap-2 text-zinc-900 dark:text-zinc-50">
-                            <p class="text-xl font-semibold tracking-[-0.02em] sm:text-2xl">
-                                {{ $this->pendingItemsCount }}/{{ $this->totalVisibleItemsCount }}
-                            </p>
-                            <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('pendents') }}</p>
-                        </div>
-                    </div>
-
-                    <div class="rounded-[1.15rem] border border-zinc-200/70 bg-zinc-50 px-3 py-2.5 dark:border-zinc-700/70 dark:bg-zinc-900/80">
-                        <p class="text-[0.7rem] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">{{ __('Botigues') }}</p>
-                        <div class="mt-1 flex items-baseline gap-2 text-zinc-900 dark:text-zinc-50">
-                            <p class="text-xl font-semibold tracking-[-0.02em] sm:text-2xl">{{ $this->pendingShopsCount }}</p>
-                            <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('pendents') }}</p>
-                        </div>
                     </div>
                 </div>
             </div>

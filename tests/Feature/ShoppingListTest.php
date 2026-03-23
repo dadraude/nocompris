@@ -94,6 +94,12 @@ test('shopping list renders compact layout hooks', function () {
     $this->get(route('dashboard'))
         ->assertSuccessful()
         ->assertSee('max-w-[90rem]', false)
+        ->assertSee('data-test="shopping-list-header-stats"', false)
+        ->assertSee('data-test="shopping-list-header-actions"', false)
+        ->assertSeeInOrder([
+            'data-test="shopping-list-header-stats"',
+            'data-test="shopping-list-header-actions"',
+        ], false)
         ->assertSee('x-data="{ expanded: false }"', false)
         ->assertDontSee("window.matchMedia('(min-width: 768px)').matches", false)
         ->assertSee('rounded-xl', false)
