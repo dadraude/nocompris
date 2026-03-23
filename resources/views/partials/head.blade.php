@@ -6,8 +6,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <meta name="application-name" content="{{ $applicationName }}" />
 <meta name="description" content="Llista de la compra compartida per organitzar botigues i productes des del mòbil o l'escriptori." />
-<meta name="theme-color" media="(prefers-color-scheme: light)" content="#fafaf9" />
-<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#09090b" />
+<meta name="theme-color" media="(prefers-color-scheme: light)" content="#f7f3ec" />
+<meta name="theme-color" media="(prefers-color-scheme: dark)" content="#0c1117" />
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -35,24 +35,32 @@
     }
 
     html {
-        background: #fafaf9;
+        background:
+            radial-gradient(circle at top, rgba(255, 157, 112, 0.14), transparent 25%),
+            linear-gradient(180deg, #f7f3ec 0%, #f3eee4 52%, #efe8dc 100%);
     }
 
     body {
         min-height: 100vh;
         margin: 0;
-        background: #fafaf9;
-        color: #18181b;
+        background:
+            radial-gradient(circle at top right, rgba(77, 164, 163, 0.1), transparent 22%),
+            linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(247, 243, 236, 0.9));
+        color: #171a1f;
     }
 
     .dark {
         color-scheme: dark;
-        background: #09090b;
+        background:
+            radial-gradient(circle at top, rgba(255, 125, 70, 0.12), transparent 22%),
+            linear-gradient(180deg, #0b1116 0%, #101921 48%, #162029 100%);
     }
 
     .dark body {
-        background: #09090b;
-        color: #f5f5f5;
+        background:
+            radial-gradient(circle at top right, rgba(127, 208, 203, 0.09), transparent 24%),
+            linear-gradient(180deg, rgba(11, 17, 22, 0.92), rgba(16, 25, 33, 0.98));
+        color: #eef3f4;
     }
 
     [data-app-loading-screen] {
@@ -63,15 +71,15 @@
         align-items: center;
         justify-content: center;
         padding: 1.5rem;
-        background: rgba(250, 250, 249, 0.94);
-        color: #18181b;
+        background: rgba(247, 243, 236, 0.94);
+        color: #171a1f;
         opacity: 1;
         transition: opacity 250ms ease;
     }
 
     .dark [data-app-loading-screen] {
-        background: rgba(9, 9, 11, 0.94);
-        color: #f5f5f5;
+        background: rgba(12, 17, 23, 0.94);
+        color: #eef3f4;
     }
 
     .js [data-app-loading-screen] {
@@ -89,31 +97,31 @@
 
     [data-app-loading-card] {
         width: min(100%, 20rem);
-        border: 1px solid rgba(212, 212, 216, 0.92);
+        border: 1px solid rgba(255, 255, 255, 0.72);
         border-radius: 2rem;
-        background: rgba(255, 255, 255, 0.96);
+        background: rgba(255, 255, 255, 0.9);
         padding: 1.5rem;
-        box-shadow: 0 25px 60px rgba(24, 24, 27, 0.12);
+        box-shadow: 0 25px 60px rgba(15, 23, 42, 0.12);
     }
 
     .dark [data-app-loading-card] {
-        border-color: rgba(63, 63, 70, 0.85);
-        background: rgba(24, 24, 27, 0.96);
+        border-color: rgba(255, 255, 255, 0.08);
+        background: rgba(16, 25, 33, 0.96);
         box-shadow: 0 25px 60px rgba(0, 0, 0, 0.35);
     }
 
     [data-app-loading-spinner] {
         width: 1.25rem;
         height: 1.25rem;
-        border: 2px solid rgba(212, 212, 216, 0.95);
-        border-top-color: #c1dccd;
+        border: 2px solid rgba(232, 226, 216, 0.95);
+        border-top-color: #2f8385;
         border-radius: 9999px;
         animation: app-loading-spin 0.8s linear infinite;
     }
 
     .dark [data-app-loading-spinner] {
-        border-color: rgba(82, 82, 91, 0.9);
-        border-top-color: #c1dccd;
+        border-color: rgba(255, 255, 255, 0.12);
+        border-top-color: #7fd0cb;
     }
 
     @keyframes app-loading-spin {

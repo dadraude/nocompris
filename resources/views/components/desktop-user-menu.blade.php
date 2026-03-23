@@ -3,11 +3,11 @@
         :name="auth()->user()->name"
         :initials="auth()->user()->initials()"
         icon:trailing="chevrons-up-down"
-        class="rounded-2xl border border-zinc-200 bg-white px-1.5 py-1 dark:border-zinc-800 dark:bg-zinc-900"
+        class="app-sidebar-user-card px-1.5 py-1"
         data-test="sidebar-menu-button"
     />
 
-    <flux:menu class="min-w-72 rounded-3xl border border-zinc-200 bg-white p-2 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
+    <flux:menu class="min-w-72 rounded-[1.75rem] border border-white/80 bg-white/92 p-2 shadow-lg backdrop-blur-sm dark:border-white/10 dark:bg-[#121c24]/94">
         <div class="flex items-center gap-2 px-1 py-1.5 text-start text-sm">
             <flux:avatar
                 :name="auth()->user()->name"

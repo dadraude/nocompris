@@ -26,8 +26,8 @@ test('pwa assets are published with the expected configuration', function () {
             'start_url' => '/login',
             'scope' => '/',
             'display' => 'standalone',
-            'background_color' => '#fafaf9',
-            'theme_color' => '#fafaf9',
+            'background_color' => '#f7f3ec',
+            'theme_color' => '#f7f3ec',
             'lang' => 'ca',
         ])
         ->and($manifest['icons'])->toBeArray();

@@ -17,7 +17,7 @@ test('authenticated users can visit the dashboard', function () {
         ->assertSee('NoCompris')
         ->assertSee('Organitza la compra')
         ->assertSee('data-app-loading-screen', false)
-        ->assertSee('Preparant la teva llista perquè l’entrada sigui més suau...')
+        ->assertSee('Afinant espais, accions i context perquè comprar sigui més directe.')
         ->assertSee('Llistat complet')
         ->assertDontSee('Una llista simple per organitzar la compra compartida.')
         ->assertSee('data-test="mobile-refresh-button"', false)

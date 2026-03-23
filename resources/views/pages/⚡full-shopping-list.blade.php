@@ -340,10 +340,14 @@ new #[Title('Llistat complet')] class extends Component
 
 <section class="w-full">
     <div class="mx-auto flex w-full max-w-[90rem] flex-col gap-3 px-2.5 pb-3 pt-1.5 sm:gap-4 sm:px-4 sm:pb-4 sm:pt-2 lg:px-5 xl:px-6">
-        <div class="overflow-hidden rounded-xl border border-zinc-200/80 bg-linear-to-br from-white via-zinc-50 to-stone-100 shadow-sm dark:border-zinc-700/70 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 sm:rounded-2xl">
+        <div class="app-hero-shell">
             <div class="flex flex-col gap-4 px-3 py-3 sm:px-4 sm:py-4 lg:flex-row lg:items-end lg:justify-between">
                 <div class="max-w-2xl">
+                    <p class="app-kicker mb-2">{{ __('Vista global') }}</p>
                     <flux:heading size="xl" level="1">{{ __('Llistat complet') }}</flux:heading>
+                    <p class="mt-2 text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+                        {{ __('Una sola lectura per revisar tota la compra visible, ordenar-la i filtrar-la sense sortir del context.') }}
+                    </p>
                 </div>
 
                 <div class="grid gap-3 lg:min-w-[24rem]">
@@ -420,7 +424,7 @@ new #[Title('Llistat complet')] class extends Component
         </div>
 
         @if ($this->orderedItems->isEmpty())
-            <div class="rounded-xl border border-dashed border-zinc-300 bg-white/80 px-4 py-6 text-center shadow-sm dark:border-zinc-700 dark:bg-zinc-900/60 sm:rounded-2xl">
+            <div class="app-panel border-dashed px-4 py-6 text-center sm:rounded-2xl">
                 <flux:heading size="lg">
                     {{ $this->hasActiveShopFilters
                         ? __('No hi ha productes visibles amb els filtres actuals')
@@ -461,7 +465,7 @@ new #[Title('Llistat complet')] class extends Component
         @else
             <div
                 data-test="full-list"
-                class="overflow-hidden rounded-xl border border-zinc-200/80 bg-white/85 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-900/65 sm:rounded-2xl"
+                class="app-panel overflow-hidden sm:rounded-[1.75rem]"
             >
                 <div class="flex flex-wrap items-center justify-between gap-2 border-b border-zinc-200/70 px-3 py-3 dark:border-zinc-700/70 sm:px-4">
                     <div class="space-y-1">

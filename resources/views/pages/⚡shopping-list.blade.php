@@ -829,20 +829,20 @@ new #[Title('Llista de la compra')] class extends Component
 
 <section class="w-full">
     <div class="mx-auto flex w-full max-w-[90rem] flex-col gap-3 px-2.5 pb-3 pt-1.5 sm:gap-4 sm:px-4 sm:pb-4 sm:pt-2 lg:px-5 xl:px-6">
-        <div class="overflow-hidden rounded-xl border border-zinc-200/80 bg-linear-to-br from-white via-zinc-50 to-stone-100 shadow-sm dark:border-zinc-700/70 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 sm:rounded-2xl">
+        <div class="app-hero-shell">
             <div class="flex flex-col gap-2 px-3 py-3 sm:gap-3 sm:px-4 sm:py-4 lg:gap-4">
                 <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                     <div class="hidden max-w-2xl space-y-1 sm:block">
-                        <p class="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">Organitza la compra</p>
+                        <p class="app-kicker">{{ __('Organitza la compra') }}</p>
                         <flux:heading size="xl" level="1">{{ __('Llista de la compra') }}</flux:heading>
-                        <flux:subheading class="max-w-2xl text-sm">
-                            {{ __('Comparteix botigues amb el teu grup i decideix si cada producte és públic o privat.') }}
+                        <flux:subheading class="max-w-2xl text-sm text-zinc-600 dark:text-zinc-300">
+                            {{ __('Botigues amb context, productes visibles quan toca i una lectura molt més clara del que queda pendent.') }}
                         </flux:subheading>
                     </div>
 
-                    <div class="grid grid-cols-2 gap-1.5 rounded-[1.25rem] border border-zinc-200/70 bg-white/80 p-2.5 backdrop-blur-sm dark:border-zinc-700/70 dark:bg-zinc-950/40 lg:min-w-[22rem]" data-test="shopping-list-header-stats">
-                        <div class="rounded-[1.15rem] border border-zinc-200/70 bg-zinc-50 px-3 py-2.5 dark:border-zinc-700/70 dark:bg-zinc-900/80">
-                            <p class="text-[0.7rem] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">{{ __('Productes') }}</p>
+                    <div class="grid grid-cols-2 gap-1.5 lg:min-w-[22rem]" data-test="shopping-list-header-stats">
+                        <div class="app-metric-card">
+                            <p class="app-kicker">{{ __('Productes') }}</p>
                             <div class="mt-1 flex items-baseline gap-2 text-zinc-900 dark:text-zinc-50">
                                 <p class="text-xl font-semibold tracking-[-0.02em] sm:text-2xl">
                                     {{ $this->pendingItemsCount }}/{{ $this->totalVisibleItemsCount }}
@@ -851,8 +851,8 @@ new #[Title('Llista de la compra')] class extends Component
                             </div>
                         </div>
 
-                        <div class="rounded-[1.15rem] border border-zinc-200/70 bg-zinc-50 px-3 py-2.5 dark:border-zinc-700/70 dark:bg-zinc-900/80">
-                            <p class="text-[0.7rem] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">{{ __('Botigues') }}</p>
+                        <div class="app-metric-card">
+                            <p class="app-kicker">{{ __('Botigues') }}</p>
                             <div class="mt-1 flex items-baseline gap-2 text-zinc-900 dark:text-zinc-50">
                                 <p class="text-xl font-semibold tracking-[-0.02em] sm:text-2xl">{{ $this->pendingShopsCount }}</p>
                                 <p class="text-sm text-zinc-500 dark:text-zinc-400">{{ __('pendents') }}</p>
@@ -891,7 +891,7 @@ new #[Title('Llista de la compra')] class extends Component
         </div>
 
         @if ($this->shops->isEmpty())
-            <div class="rounded-xl border border-dashed border-zinc-300 bg-white/80 px-4 py-6 text-center shadow-sm dark:border-zinc-700 dark:bg-zinc-900/60 sm:rounded-2xl">
+            <div class="app-panel border-dashed px-4 py-6 text-center sm:rounded-2xl">
                 <flux:heading size="lg">{{ __('Encara no tens cap botiga') }}</flux:heading>
                 <flux:text class="mt-3 text-zinc-500 dark:text-zinc-400">
                     {{ __('Crea la primera botiga per començar a preparar la teva compra setmanal.') }}

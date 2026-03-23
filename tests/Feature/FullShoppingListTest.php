@@ -27,7 +27,7 @@ test('authenticated user can visit the full shopping list page from the sidebar 
         ->assertSee('Filtra per botigues')
         ->assertSee('data-test="full-list-sort-select"', false)
         ->assertSee('Llista de la compra')
-        ->assertDontSee('Vista global');
+        ->assertSee('Vista global');
 });
 
 test('full shopping list shows visible items with quantities and shop badges', function () {

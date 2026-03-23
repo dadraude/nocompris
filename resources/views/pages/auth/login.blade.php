@@ -1,21 +1,21 @@
 <x-layouts::auth.card :title="__('Log in')">
     <div class="flex flex-col gap-6">
-        <div class="overflow-hidden rounded-3xl border border-stone-200 bg-linear-to-br from-white via-stone-50 to-stone-100 p-6 shadow-sm dark:border-stone-800 dark:from-stone-950 dark:via-stone-950 dark:to-stone-900">
+        <div class="app-auth-band">
             <div class="flex flex-col gap-4">
                 <div class="flex items-center justify-between gap-3">
-                    <div class="inline-flex items-center rounded-full border border-stone-200 bg-white/80 px-3 py-1 text-xs font-medium tracking-[0.24em] text-stone-500 uppercase dark:border-stone-700 dark:bg-stone-900/70 dark:text-stone-300">
-                        {{ __('Email sign in') }}
+                    <div class="app-chip">
+                        {{ __('Entrada amb correu') }}
                     </div>
 
-                    <div class="flex size-10 items-center justify-center rounded-2xl bg-stone-900 text-white dark:bg-white dark:text-stone-900">
+                    <div class="flex size-11 items-center justify-center rounded-[1.1rem] bg-brand-900 text-white shadow-sm dark:bg-brand-200 dark:text-zinc-950">
                         <flux:icon.envelope variant="mini" class="size-5" />
                     </div>
                 </div>
 
                 <div class="space-y-2 text-left">
-                    <flux:heading size="xl">{{ __('A faster way back in') }}</flux:heading>
-                    <flux:text class="text-pretty text-sm leading-6 text-stone-600 dark:text-stone-300">
-                        {{ __('Enter your email and we will send you a one-time code to continue securely.') }}
+                    <flux:heading size="xl">{{ __('Torna a entrar sense perdre el ritme.') }}</flux:heading>
+                    <flux:text class="text-pretty text-sm leading-6 text-zinc-600 dark:text-zinc-300">
+                        {{ __('Posa el teu correu i t’enviarem un codi temporal per continuar amb una entrada segura i ràpida.') }}
                     </flux:text>
                 </div>
             </div>
@@ -28,7 +28,7 @@
 
             <flux:input
                 name="email"
-                :label="__('Email address')"
+                :label="__('Adreça de correu')"
                 :value="old('email')"
                 type="email"
                 required
@@ -37,27 +37,27 @@
                 placeholder="email@example.com"
             />
 
-            <div class="grid gap-3 rounded-2xl border border-dashed border-stone-200 bg-stone-50/80 p-4 text-sm text-stone-600 dark:border-stone-800 dark:bg-stone-900/60 dark:text-stone-300">
+            <div class="app-auth-note">
                 <div class="flex items-center gap-3">
-                    <div class="flex size-8 items-center justify-center rounded-full bg-white text-stone-900 shadow-sm dark:bg-stone-800 dark:text-white">
+                    <div class="flex size-8 items-center justify-center rounded-full bg-white text-brand-900 shadow-sm dark:bg-white/10 dark:text-white">
                         <flux:icon.sparkles variant="mini" class="size-4" />
                     </div>
 
-                    <p class="text-balance font-medium text-stone-800 dark:text-stone-100">
-                        {{ __('No password to remember, no magic links to chase.') }}
+                    <p class="text-balance font-medium text-zinc-800 dark:text-zinc-100">
+                        {{ __('Sense contrasenyes per recordar ni passos innecessaris.') }}
                     </p>
                 </div>
 
                 <p class="text-pretty leading-6">
-                    {{ __('We will email you a 6-digit code that expires in 10 minutes.') }}
+                    {{ __('Rebràs un codi de 6 dígits que caduca en 10 minuts.') }}
                 </p>
             </div>
 
-            <flux:checkbox name="remember" :label="__('Keep me signed in on this device')" :checked="old('remember')" />
+            <flux:checkbox name="remember" :label="__('Mantén la sessió iniciada en aquest dispositiu')" :checked="old('remember')" />
 
             <div class="flex items-center justify-end">
                 <flux:button variant="primary" type="submit" class="w-full" data-test="login-button">
-                    {{ __('Continue with email') }}
+                    {{ __('Continua amb el correu') }}
                 </flux:button>
             </div>
         </form>

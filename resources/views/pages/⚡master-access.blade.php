@@ -207,14 +207,14 @@ new #[Title('Usuaris i grups')] class extends Component
 
 <section class="w-full">
     <div class="mx-auto flex w-full max-w-[90rem] flex-col gap-3 px-2.5 py-3 sm:gap-4 sm:px-4 sm:py-4 lg:px-5 xl:px-6">
-        <div class="overflow-hidden rounded-xl border border-zinc-200/80 bg-linear-to-br from-stone-50 via-white to-amber-50 shadow-sm dark:border-zinc-700/70 dark:from-zinc-900 dark:via-zinc-900 dark:to-zinc-800 sm:rounded-2xl">
+        <div class="app-hero-shell">
             <div class="flex flex-col gap-3 px-3 py-4 sm:px-4 sm:py-4 lg:gap-4">
                 <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
                     <div class="max-w-2xl space-y-1">
-                        <p class="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-zinc-500 dark:text-zinc-400">Control d'accés</p>
+                        <p class="app-kicker">{{ __('Control d\'accés') }}</p>
                         <flux:heading size="xl" level="1">{{ __('Usuaris i grups') }}</flux:heading>
-                        <flux:subheading class="max-w-2xl text-sm">
-                            {{ __('Crea grups, dona d’alta usuaris i defineix qui actua com a master dins de l’aplicació.') }}
+                        <flux:subheading class="max-w-2xl text-sm text-zinc-600 dark:text-zinc-300">
+                            {{ __('Govern visualment més clar per a grups, persones usuàries i rols master, sense tocar permisos ni fluxos.') }}
                         </flux:subheading>
                     </div>
 
@@ -225,17 +225,17 @@ new #[Title('Usuaris i grups')] class extends Component
                     </div>
                 </div>
 
-                <div class="grid gap-1.5 rounded-[1.25rem] border border-zinc-200/70 bg-white/80 p-2.5 backdrop-blur-sm dark:border-zinc-700/70 dark:bg-zinc-950/40 sm:grid-cols-3">
-                    <div class="rounded-xl bg-zinc-50 px-2.5 py-2 dark:bg-zinc-900/80">
-                        <p class="text-[0.7rem] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">{{ __('Grups') }}</p>
+                <div class="grid gap-1.5 sm:grid-cols-3">
+                    <div class="app-metric-card">
+                        <p class="app-kicker">{{ __('Grups') }}</p>
                         <p class="text-xl font-semibold text-zinc-900 dark:text-zinc-50">{{ $this->groups->count() }}</p>
                     </div>
-                    <div class="rounded-xl bg-zinc-50 px-2.5 py-2 dark:bg-zinc-900/80">
-                        <p class="text-[0.7rem] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">{{ __('Usuaris') }}</p>
+                    <div class="app-metric-card">
+                        <p class="app-kicker">{{ __('Usuaris') }}</p>
                         <p class="text-xl font-semibold text-zinc-900 dark:text-zinc-50">{{ $this->users->count() }}</p>
                     </div>
-                    <div class="rounded-xl bg-zinc-50 px-2.5 py-2 dark:bg-zinc-900/80">
-                        <p class="text-[0.7rem] font-medium uppercase tracking-[0.16em] text-zinc-500 dark:text-zinc-400">{{ __('Masters') }}</p>
+                    <div class="app-metric-card">
+                        <p class="app-kicker">{{ __('Masters') }}</p>
                         <p class="text-xl font-semibold text-zinc-900 dark:text-zinc-50">{{ $this->users->where('is_master', true)->count() }}</p>
                     </div>
                 </div>
@@ -244,7 +244,7 @@ new #[Title('Usuaris i grups')] class extends Component
 
         <div class="grid gap-3 xl:grid-cols-[minmax(0,0.92fr)_minmax(0,1.08fr)]">
             <div class="space-y-3">
-                <article class="rounded-xl border border-zinc-200/80 bg-white/90 p-3 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-900/70 sm:rounded-2xl sm:p-4">
+                <article class="app-panel p-3 sm:rounded-[1.75rem] sm:p-4">
                     <flux:heading size="lg">{{ __('Nou grup') }}</flux:heading>
                     <flux:text class="mt-2 text-zinc-500 dark:text-zinc-400">
                         {{ __('Cada botiga es comparteix a nivell de grup, així que aquest és el primer pas per organitzar l’accés.') }}
@@ -263,7 +263,7 @@ new #[Title('Usuaris i grups')] class extends Component
                     </form>
                 </article>
 
-                <article class="rounded-xl border border-zinc-200/80 bg-white/90 p-3 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-900/70 sm:rounded-2xl sm:p-4">
+                <article class="app-panel p-3 sm:rounded-[1.75rem] sm:p-4">
                     <div class="flex items-center justify-between gap-3">
                         <div>
                             <flux:heading size="lg">{{ __('Grups existents') }}</flux:heading>
@@ -299,7 +299,7 @@ new #[Title('Usuaris i grups')] class extends Component
             </div>
 
             <div class="space-y-3">
-                <article class="rounded-xl border border-zinc-200/80 bg-white/90 p-3 shadow-sm dark:border-zinc-700/70 dark:bg-zinc-900/70 sm:rounded-2xl sm:p-4">
+                <article class="app-panel p-3 sm:rounded-[1.75rem] sm:p-4">
                     <flux:heading size="lg">{{ __('Nou usuari') }}</flux:heading>
                     <flux:text class="mt-2 text-zinc-500 dark:text-zinc-400">
                         {{ __('Els usuaris normals han d’estar dins d’un grup. Un master pot entrar al panell i gestionar nous accessos.') }}
