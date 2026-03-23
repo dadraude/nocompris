@@ -9,7 +9,10 @@ use Laravel\Fortify\Features;
 test('login screen can be rendered', function () {
     $response = $this->get(route('login'));
 
-    $response->assertOk();
+    $response
+        ->assertOk()
+        ->assertSee('data-app-loading-screen', false)
+        ->assertSee('app-is-loading', false);
 });
 
 test('login page shows login form and expected content', function () {

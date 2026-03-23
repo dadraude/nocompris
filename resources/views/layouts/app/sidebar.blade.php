@@ -4,6 +4,8 @@
         @include('partials.head')
     </head>
     <body class="min-h-screen bg-stone-50 dark:bg-zinc-950">
+        @include('partials.app-loading')
+
         <div class="min-h-screen lg:flex">
             <flux:sidebar collapsible="mobile" class="data-flux-sidebar-on-mobile:top-14! data-flux-sidebar-on-mobile:bottom-0! data-flux-sidebar-on-mobile:min-h-0! data-flux-sidebar-on-mobile:max-h-none! border-e border-zinc-200 bg-white lg:sticky lg:top-0 lg:max-h-dvh lg:overflow-y-auto lg:overscroll-contain dark:border-zinc-800 dark:bg-zinc-950">
                 <flux:sidebar.header class="border-b border-zinc-200 px-2.5 py-2.5 dark:border-zinc-800 lg:px-3 lg:py-3">

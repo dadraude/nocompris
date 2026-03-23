@@ -4,6 +4,8 @@
         @include('partials.head')
     </head>
     <body class="min-h-screen bg-stone-50 antialiased dark:bg-zinc-950">
+        @include('partials.app-loading')
+
         <div class="grid min-h-svh lg:grid-cols-[minmax(0,1fr)_30rem]">
             <div class="hidden border-e border-zinc-200 px-10 py-12 lg:flex lg:flex-col lg:justify-between dark:border-zinc-800">
                 <div class="max-w-xl space-y-8">

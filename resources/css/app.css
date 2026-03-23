@@ -53,6 +53,25 @@
     ::file-selector-button {
         border-color: var(--color-gray-200, currentColor);
     }
+
+    [data-app-loading-screen][hidden] {
+        display: none;
+    }
+
+    .js [data-app-loading-screen] {
+        display: flex;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    .js.app-is-loading {
+        overflow: hidden;
+    }
+
+    .js.app-is-loading [data-app-loading-screen] {
+        opacity: 1;
+        pointer-events: auto;
+    }
 }
 
 @layer components {
