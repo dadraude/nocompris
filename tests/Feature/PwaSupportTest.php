@@ -26,8 +26,8 @@ test('pwa assets are published with the expected configuration', function () {
             'start_url' => '/login',
             'scope' => '/',
             'display' => 'standalone',
-            'background_color' => '#09090b',
-            'theme_color' => '#09090b',
+            'background_color' => '#fafaf9',
+            'theme_color' => '#fafaf9',
             'lang' => 'ca',
         ])
         ->and($manifest['icons'])->toBeArray();
@@ -45,7 +45,10 @@ test('pwa assets are published with the expected configuration', function () {
         ->and(public_path('pwa-512x512.png'))->toBeFile();
 
     expect(file_get_contents(resource_path('js/app.js')))
-        ->toContain("navigator.serviceWorker.register('/sw.js'");
+        ->toContain("navigator.serviceWorker.register('/sw.js'")
+        ->toContain("document.addEventListener('livewire:navigate', startAppLoading);")
+        ->toContain("document.addEventListener('livewire:navigated', () => {")
+        ->toContain('const APP_LOADING_MIN_DURATION = 420;');
 
     expect(file_get_contents(public_path('sw.js')))
         ->toContain('/offline.html');

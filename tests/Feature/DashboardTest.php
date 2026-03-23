@@ -17,7 +17,7 @@ test('authenticated users can visit the dashboard', function () {
         ->assertSee('NoCompris')
         ->assertSee('Organitza la compra')
         ->assertSee('data-app-loading-screen', false)
-        ->assertSee('Preparant la teva llista compartida...')
+        ->assertSee('Preparant la teva llista perquè l’entrada sigui més suau...')
         ->assertSee('Llistat complet')
         ->assertDontSee('Una llista simple per organitzar la compra compartida.')
         ->assertSee('data-test="mobile-refresh-button"', false)
@@ -29,6 +29,9 @@ test('authenticated users can visit the dashboard', function () {
         ->assertSee('lg:sticky lg:top-0 lg:max-h-dvh lg:overflow-y-auto lg:overscroll-contain', false)
         ->assertSee('hidden lg:block', false)
         ->assertSee('pt-14 lg:pt-0', false)
+        ->assertDontSee('<html lang="'.str_replace('_', '-', app()->getLocale()).'" class="dark">', false)
+        ->assertSee('<html lang="'.str_replace('_', '-', app()->getLocale()).'">', false)
+        ->assertSee('color-scheme: light;', false)
         ->assertSee('Refresca la pàgina');
 });
 

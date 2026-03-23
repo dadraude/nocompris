@@ -12,7 +12,10 @@ test('login screen can be rendered', function () {
     $response
         ->assertOk()
         ->assertSee('data-app-loading-screen', false)
-        ->assertSee('app-is-loading', false);
+        ->assertSee('app-is-loading', false)
+        ->assertDontSee('<html lang="'.str_replace('_', '-', app()->getLocale()).'" class="dark">', false)
+        ->assertSee('<html lang="'.str_replace('_', '-', app()->getLocale()).'">', false)
+        ->assertSee('color-scheme: light;', false);
 });
 
 test('login page shows login form and expected content', function () {

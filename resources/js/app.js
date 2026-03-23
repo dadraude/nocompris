@@ -1,15 +1,56 @@
-const finishAppLoading = () => {
-    document.documentElement.classList.remove('app-is-loading');
+const APP_LOADING_MIN_DURATION = 420;
+const APP_LOADING_FADE_DURATION = 250;
 
-    window.setTimeout(() => {
-        document.querySelector('[data-app-loading-screen]')?.setAttribute('hidden', 'hidden');
-    }, 250);
+let appLoadingStartedAt = performance.now();
+let appLoadingHideTimer = null;
+let appLoadingRemoveTimer = null;
+
+const appLoadingScreen = () => document.querySelector('[data-app-loading-screen]');
+
+const startAppLoading = () => {
+    const loadingScreen = appLoadingScreen();
+
+    appLoadingStartedAt = performance.now();
+
+    if (appLoadingHideTimer !== null) {
+        window.clearTimeout(appLoadingHideTimer);
+        appLoadingHideTimer = null;
+    }
+
+    if (appLoadingRemoveTimer !== null) {
+        window.clearTimeout(appLoadingRemoveTimer);
+        appLoadingRemoveTimer = null;
+    }
+
+    loadingScreen?.removeAttribute('hidden');
+    document.documentElement.classList.add('app-is-loading');
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-    window.requestAnimationFrame(() => {
-        window.setTimeout(finishAppLoading, 120);
-    });
+const finishAppLoading = () => {
+    const loadingScreen = appLoadingScreen();
+    const elapsed = performance.now() - appLoadingStartedAt;
+    const remaining = Math.max(APP_LOADING_MIN_DURATION - elapsed, 0);
+
+    if (appLoadingHideTimer !== null) {
+        window.clearTimeout(appLoadingHideTimer);
+    }
+
+    appLoadingHideTimer = window.setTimeout(() => {
+        document.documentElement.classList.remove('app-is-loading');
+
+        if (appLoadingRemoveTimer !== null) {
+            window.clearTimeout(appLoadingRemoveTimer);
+        }
+
+        appLoadingRemoveTimer = window.setTimeout(() => {
+            loadingScreen?.setAttribute('hidden', 'hidden');
+        }, APP_LOADING_FADE_DURATION);
+    }, remaining);
+};
+
+document.addEventListener('livewire:navigate', startAppLoading);
+document.addEventListener('livewire:navigated', () => {
+    window.requestAnimationFrame(finishAppLoading);
 });
 
 window.addEventListener('load', finishAppLoading, { once: true });
