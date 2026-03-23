@@ -2,6 +2,7 @@
 
 namespace App\Concerns;
 
+use App\ShoppingListItemQuantityUnit;
 use App\ShoppingListItemVisibility;
 use Illuminate\Contracts\Validation\Rule;
 use Illuminate\Validation\Rule as ValidationRule;
@@ -26,11 +27,12 @@ trait ShoppingListValidationRules
      *
      * @return array<string, array<int, Rule|array<mixed>|string>>
      */
-    protected function shoppingListItemDataRules(): array
+    protected function shoppingListItemDataRules(ShoppingListItemQuantityUnit|string $quantityUnit = ShoppingListItemQuantityUnit::Unit): array
     {
         return [
             'name' => $this->itemNameRules(),
-            'quantity' => $this->quantityRules(),
+            'quantity' => $this->quantityRules($quantityUnit),
+            'quantity_unit' => $this->quantityUnitRules(),
             'visibility' => $this->visibilityRules(),
         ];
     }
@@ -50,9 +52,34 @@ trait ShoppingListValidationRules
      *
      * @return array<int, Rule|array<mixed>|string>
      */
-    protected function quantityRules(): array
+    protected function quantityRules(ShoppingListItemQuantityUnit|string $quantityUnit = ShoppingListItemQuantityUnit::Unit): array
     {
+        $quantityUnit = $quantityUnit instanceof ShoppingListItemQuantityUnit
+            ? $quantityUnit
+            : ShoppingListItemQuantityUnit::from($quantityUnit);
+
+        if ($quantityUnit->usesDecimalQuantity()) {
+            return ['required', 'numeric', 'decimal:0,2', 'min:0.01'];
+        }
+
         return ['required', 'integer', 'min:1'];
+    }
+
+    /**
+     * Get the validation rules used to validate an item quantity unit.
+     *
+     * @return array<int, Rule|array<mixed>|string>
+     */
+    protected function quantityUnitRules(): array
+    {
+        return [
+            'required',
+            'string',
+            ValidationRule::in(array_map(
+                static fn (ShoppingListItemQuantityUnit $quantityUnit): string => $quantityUnit->value,
+                ShoppingListItemQuantityUnit::cases(),
+            )),
+        ];
     }
 
     /**

@@ -3,6 +3,7 @@
 use App\Concerns\ShoppingListValidationRules;
 use App\Models\Shop;
 use App\Models\ShoppingListItem;
+use App\ShoppingListItemQuantityUnit;
 use App\ShoppingListItemVisibility;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Collection;
@@ -37,7 +38,9 @@ new #[Title('Llista de la compra')] class extends Component
 
     public string $newItemName = '';
 
-    public int $newItemQuantity = 1;
+    public string $newItemQuantity = '1';
+
+    public string $newItemQuantityUnit = 'u';
 
     public string $newItemVisibility = 'public';
 
@@ -250,7 +253,8 @@ new #[Title('Llista de la compra')] class extends Component
         $this->editingItemId = $item->id;
         $this->addingItemShopId = $item->shop_id;
         $this->newItemName = $item->name;
-        $this->newItemQuantity = $item->quantity;
+        $this->newItemQuantity = $this->quantityValueForInput($item->quantity, $item->quantity_unit);
+        $this->newItemQuantityUnit = $item->quantity_unit->value;
         $this->newItemVisibility = $item->visibility->value;
     }
 
@@ -267,17 +271,26 @@ new #[Title('Llista de la compra')] class extends Component
             $validated = Validator::make(
                 [
                     'name' => $this->newItemName,
-                    'quantity' => $this->newItemQuantity,
+                    'quantity' => $this->normalizedQuantityInput($this->newItemQuantity),
+                    'quantity_unit' => $this->newItemQuantityUnit,
                 ],
                 [
                     'name' => $this->itemNameRules(),
-                    'quantity' => $this->quantityRules(),
+                    'quantity' => $this->quantityRules($this->newItemQuantityUnit),
+                    'quantity_unit' => $this->quantityUnitRules(),
                 ],
                 [],
-                ['name' => 'producte', 'quantity' => 'quantitat'],
+                ['name' => 'producte', 'quantity' => 'quantitat', 'quantity_unit' => 'unitat'],
             )->validate();
 
-            $item->update($validated);
+            $item->update([
+                'name' => $validated['name'],
+                'quantity' => $this->quantityValueForStorage(
+                    $validated['quantity'],
+                    $validated['quantity_unit'],
+                ),
+                'quantity_unit' => $validated['quantity_unit'],
+            ]);
 
             $this->resetItemForm();
             $this->modal('item-form')->close();
@@ -293,16 +306,22 @@ new #[Title('Llista de la compra')] class extends Component
         $validated = Validator::make(
             [
                 'name' => $this->newItemName,
-                'quantity' => $this->newItemQuantity,
+                'quantity' => $this->normalizedQuantityInput($this->newItemQuantity),
+                'quantity_unit' => $this->newItemQuantityUnit,
                 'visibility' => $this->newItemVisibility,
             ],
-            $this->shoppingListItemDataRules(),
+            $this->shoppingListItemDataRules($this->newItemQuantityUnit),
             [],
-            ['name' => 'producte', 'quantity' => 'quantitat', 'visibility' => 'visibilitat'],
+            ['name' => 'producte', 'quantity' => 'quantitat', 'quantity_unit' => 'unitat', 'visibility' => 'visibilitat'],
         )->validate();
 
         $shop->shoppingListItems()->create([
             ...$validated,
+            'quantity' => $this->quantityValueForStorage(
+                $validated['quantity'],
+                $validated['quantity_unit'],
+            ),
+            'quantity_unit' => $validated['quantity_unit'],
             'user_id' => Auth::id(),
             'position' => $this->nextItemPosition($shop),
         ]);
@@ -330,14 +349,54 @@ new #[Title('Llista de la compra')] class extends Component
         $this->authorize('update', $item);
 
         $validated = Validator::make(
-            ['quantity' => $quantity],
-            ['quantity' => $this->quantityRules()],
+            ['quantity' => $this->normalizedQuantityInput($quantity)],
+            ['quantity' => $this->quantityRules($item->quantity_unit)],
             [],
             ['quantity' => 'quantitat'],
         )->validate();
 
-        $item->update($validated);
+        $item->update([
+            'quantity' => $this->quantityValueForStorage($validated['quantity'], $item->quantity_unit),
+        ]);
         $this->dispatch('item-updated');
+    }
+
+    /**
+     * Increase the stepper quantity for a unit-based item.
+     */
+    public function incrementNewItemQuantity(): void
+    {
+        if ($this->newItemUsesDecimalQuantity()) {
+            return;
+        }
+
+        $this->newItemQuantity = (string) ($this->integerQuantityFromInput($this->newItemQuantity) + 1);
+    }
+
+    /**
+     * Decrease the stepper quantity for a unit-based item.
+     */
+    public function decrementNewItemQuantity(): void
+    {
+        if ($this->newItemUsesDecimalQuantity()) {
+            return;
+        }
+
+        $this->newItemQuantity = (string) max(1, $this->integerQuantityFromInput($this->newItemQuantity) - 1);
+    }
+
+    /**
+     * Keep the quantity aligned with the selected quantity mode.
+     */
+    public function updatedNewItemQuantityUnit(string $quantityUnit): void
+    {
+        if ($this->newItemUsesDecimalQuantity($quantityUnit)) {
+            $this->newItemQuantity = $this->quantityValueForInput($this->newItemQuantity, $quantityUnit);
+
+            return;
+        }
+
+        $this->newItemQuantity = (string) $this->integerQuantityFromInput($this->newItemQuantity);
     }
 
     /**
@@ -349,9 +408,35 @@ new #[Title('Llista de la compra')] class extends Component
 
         $this->authorize('update', $item);
 
-        $item->update([
-            'purchased' => ! $item->purchased,
+        $item->updatePurchaseState(! $item->purchased);
+    }
+
+    /**
+     * Re-add a recently purchased item to the end of its shop list.
+     */
+    public function repurchaseItem(int $itemId): void
+    {
+        $item = $this->findItem($itemId);
+        $shop = $this->findShop($item->shop_id);
+
+        $this->authorize('create', [ShoppingListItem::class, $shop]);
+
+        if (! $item->purchased) {
+            return;
+        }
+
+        $shop->shoppingListItems()->create([
+            'user_id' => Auth::id(),
+            'name' => $item->name,
+            'quantity' => $item->quantity,
+            'quantity_unit' => $item->quantity_unit,
+            'visibility' => $item->visibility,
+            'purchased' => false,
+            'purchased_at' => null,
+            'position' => $this->nextItemPosition($shop),
         ]);
+
+        $this->dispatch('item-added', shopId: $shop->id);
     }
 
     /**
@@ -495,8 +580,69 @@ new #[Title('Llista de la compra')] class extends Component
         $this->editingItemId = null;
         $this->addingItemShopId = null;
         $this->newItemName = '';
-        $this->newItemQuantity = 1;
+        $this->newItemQuantity = '1';
+        $this->newItemQuantityUnit = ShoppingListItemQuantityUnit::Unit->value;
         $this->newItemVisibility = ShoppingListItemVisibility::Public->value;
+    }
+
+    /**
+     * Normalize user input so validation receives a standard decimal format.
+     */
+    protected function normalizedQuantityInput(mixed $quantity): string
+    {
+        return str_replace(',', '.', trim((string) $quantity));
+    }
+
+    /**
+     * Convert the quantity into the format expected by the database.
+     */
+    protected function quantityValueForStorage(mixed $quantity, ShoppingListItemQuantityUnit|string $quantityUnit): int|float
+    {
+        $quantityUnit = $quantityUnit instanceof ShoppingListItemQuantityUnit
+            ? $quantityUnit
+            : ShoppingListItemQuantityUnit::from($quantityUnit);
+        $numericQuantity = (float) $this->normalizedQuantityInput($quantity);
+
+        if ($quantityUnit->usesDecimalQuantity()) {
+            return round($numericQuantity, 2);
+        }
+
+        return max(1, (int) round($numericQuantity));
+    }
+
+    /**
+     * Convert the stored quantity into the value shown in the form control.
+     */
+    protected function quantityValueForInput(mixed $quantity, ShoppingListItemQuantityUnit|string $quantityUnit): string
+    {
+        $quantityUnit = $quantityUnit instanceof ShoppingListItemQuantityUnit
+            ? $quantityUnit
+            : ShoppingListItemQuantityUnit::from($quantityUnit);
+        $numericQuantity = (float) $this->normalizedQuantityInput($quantity);
+
+        if (! $quantityUnit->usesDecimalQuantity()) {
+            return (string) max(1, (int) round($numericQuantity));
+        }
+
+        return rtrim(rtrim(number_format($numericQuantity, 2, '.', ''), '0'), '.');
+    }
+
+    /**
+     * Determine whether the selected unit should use a decimal input.
+     */
+    public function newItemUsesDecimalQuantity(?string $quantityUnit = null): bool
+    {
+        return ShoppingListItemQuantityUnit::from(
+            $quantityUnit ?? $this->newItemQuantityUnit,
+        )->usesDecimalQuantity();
+    }
+
+    /**
+     * Resolve the integer value used by the stepper.
+     */
+    protected function integerQuantityFromInput(mixed $quantity): int
+    {
+        return max(1, (int) ceil((float) $this->normalizedQuantityInput($quantity)));
     }
 
     /**
@@ -557,12 +703,12 @@ new #[Title('Llista de la compra')] class extends Component
     public function visibleItemsForShop(Shop $shop): Collection
     {
         if ($this->showPurchased) {
-            return $shop->shoppingListItems;
+            return $this->orderedItemsForDisplay($shop->shoppingListItems);
         }
 
-        return $shop->shoppingListItems
-            ->where('purchased', false)
-            ->values();
+        return $this->orderedItemsForDisplay(
+            $shop->shoppingListItems->where('purchased', false)->values(),
+        );
     }
 
     /**
@@ -571,6 +717,61 @@ new #[Title('Llista de la compra')] class extends Component
     public function visibleShops(): Collection
     {
         return $this->shops;
+    }
+
+    /**
+     * Get recently purchased items that can be quickly re-added.
+     */
+    public function repurchaseSuggestionsForShop(Shop $shop): Collection
+    {
+        $pendingItemKeys = $shop->shoppingListItems
+            ->where('purchased', false)
+            ->map(
+                fn (ShoppingListItem $item): string => $this->repurchaseItemKey($item->name),
+            )
+            ->all();
+
+        return $shop->shoppingListItems
+            ->where('purchased', true)
+            ->reject(
+                fn (ShoppingListItem $item): bool => in_array(
+                    $this->repurchaseItemKey($item->name),
+                    $pendingItemKeys,
+                    true,
+                ),
+            )
+            ->sortByDesc(fn (ShoppingListItem $item): string => sprintf(
+                '%010d|%010d',
+                $item->purchased_at?->getTimestamp() ?? 0,
+                $item->id,
+            ), SORT_NATURAL)
+            ->unique(
+                fn (ShoppingListItem $item): string => $this->repurchaseItemKey($item->name),
+            )
+            ->take(4)
+            ->values();
+    }
+
+    /**
+     * Order items so pending products always appear before purchased ones.
+     */
+    protected function orderedItemsForDisplay(Collection $items): Collection
+    {
+        return $items
+            ->sortBy(fn (ShoppingListItem $item): string => sprintf(
+                '%d|%010d',
+                $item->purchased ? 1 : 0,
+                $item->position,
+            ), SORT_NATURAL)
+            ->values();
+    }
+
+    /**
+     * Normalize an item name so repurchase suggestions collapse duplicates.
+     */
+    protected function repurchaseItemKey(string $name): string
+    {
+        return Str::squish(Str::lower($name));
     }
 
 };
@@ -647,6 +848,7 @@ new #[Title('Llista de la compra')] class extends Component
             <div class="grid gap-3" wire:sort="reorderShops">
                 @foreach ($this->visibleShops() as $shop)
                     @php($visibleItems = $this->visibleItemsForShop($shop))
+                    @php($repurchaseSuggestions = $this->repurchaseSuggestionsForShop($shop))
                     @php($shopIsMuted = ! $showPurchased && $visibleItems->isEmpty())
 
                     <article
@@ -747,7 +949,42 @@ new #[Title('Llista de la compra')] class extends Component
                                                 {{ __('No hi ha productes pendents en aquesta botiga.') }}
                                             </flux:text>
                                         </div>
-                                    @else
+                                    @endif
+
+                                    @if ($repurchaseSuggestions->isNotEmpty())
+                                        <div
+                                            data-test="repurchase-section"
+                                            class="space-y-2 rounded-xl border border-zinc-200/80 bg-white/75 p-3 dark:border-zinc-700/70 dark:bg-zinc-950/25"
+                                        >
+                                            <div class="space-y-1">
+                                                <p class="text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-zinc-500 dark:text-zinc-400">
+                                                    {{ __('Torna a afegir') }}
+                                                </p>
+                                                <flux:text class="text-sm text-zinc-500 dark:text-zinc-400">
+                                                    {{ __('Recupera en un toc productes comprats recentment en aquesta botiga.') }}
+                                                </flux:text>
+                                            </div>
+
+                                            <div class="flex flex-wrap gap-2">
+                                                @foreach ($repurchaseSuggestions as $item)
+                                                    <flux:button
+                                                        wire:key="repurchase-item-{{ $item->id }}"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        data-test="repurchase-button"
+                                                        wire:click="repurchaseItem({{ $item->id }})"
+                                                    >
+                                                        <span class="truncate">{{ $item->name }}</span>
+                                                        <span class="rounded-full bg-zinc-100 px-2 py-0.5 text-xs font-semibold text-zinc-600 dark:bg-zinc-800 dark:text-zinc-200">
+                                                            {{ $item->formattedQuantity() }}
+                                                        </span>
+                                                    </flux:button>
+                                                @endforeach
+                                            </div>
+                                        </div>
+                                    @endif
+
+                                    @if ($visibleItems->isNotEmpty())
                                         <div data-shop-items class="space-y-1.5" wire:sort="reorderItems">
                                             @foreach ($visibleItems as $item)
                                                 <div
@@ -795,7 +1032,7 @@ new #[Title('Llista de la compra')] class extends Component
                                                                         data-test="item-quantity-text"
                                                                         class="shrink-0 text-sm font-semibold text-zinc-500 dark:text-zinc-400"
                                                                     >
-                                                                        {{ $item->quantity }}
+                                                                        {{ $item->formattedQuantity() }}
                                                                     </span>
 
                                                                     <p
@@ -814,7 +1051,7 @@ new #[Title('Llista de la compra')] class extends Component
                                                                     data-test="item-quantity-text"
                                                                     class="shrink-0 text-sm font-semibold text-zinc-500 dark:text-zinc-400"
                                                                 >
-                                                                    {{ $item->quantity }}
+                                                                    {{ $item->formattedQuantity() }}
                                                                 </span>
 
                                                                 <p
@@ -972,27 +1209,86 @@ new #[Title('Llista de la compra')] class extends Component
                 :placeholder="__('Ex. tomàquets')"
             />
 
-            <div @class([
-                'grid gap-3',
-                'sm:grid-cols-[8rem_minmax(0,1fr)]' => $editingItemId === null,
-                'sm:max-w-[8rem]' => $editingItemId !== null,
-            ])>
-                <flux:input
-                    wire:model="newItemQuantity"
-                    :label="__('Qtat.')"
-                    type="number"
-                    min="1"
-                />
+            <div class="space-y-3">
+                <div @class([
+                    'grid gap-3',
+                    'sm:grid-cols-[minmax(0,12rem)_minmax(0,10rem)_minmax(0,1fr)]' => $editingItemId === null,
+                    'sm:grid-cols-[minmax(0,12rem)_minmax(0,10rem)]' => $editingItemId !== null,
+                ])>
+                    <div class="space-y-2">
+                        <label class="text-sm font-medium text-zinc-800 dark:text-zinc-100">
+                            {{ __('Qtat.') }}
+                        </label>
 
-                @if ($editingItemId === null)
+                        @if ($this->newItemUsesDecimalQuantity())
+                            <flux:input
+                                wire:model="newItemQuantity"
+                                type="number"
+                                inputmode="decimal"
+                                min="0.01"
+                                step="0.01"
+                                :placeholder="__('Ex. 0.75')"
+                            />
+                        @else
+                            <div
+                                data-test="item-quantity-stepper"
+                                class="flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 p-1.5 dark:border-zinc-700 dark:bg-zinc-950/45"
+                            >
+                                <flux:button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    square
+                                    wire:click="decrementNewItemQuantity"
+                                    aria-label="{{ __('Redueix la quantitat') }}"
+                                >
+                                    <flux:icon.minus class="size-4" />
+                                </flux:button>
+
+                                <span
+                                    data-test="item-quantity-stepper-value"
+                                    class="min-w-0 flex-1 text-center text-sm font-semibold text-zinc-800 dark:text-zinc-100"
+                                >
+                                    {{ $newItemQuantity }}
+                                </span>
+
+                                <flux:button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    square
+                                    wire:click="incrementNewItemQuantity"
+                                    aria-label="{{ __('Augmenta la quantitat') }}"
+                                >
+                                    <flux:icon.plus class="size-4" />
+                                </flux:button>
+                            </div>
+                        @endif
+
+                        @error('quantity')
+                            <p class="text-sm text-red-600 dark:text-red-400">{{ $message }}</p>
+                        @enderror
+                    </div>
+
                     <flux:select
-                        wire:model="newItemVisibility"
-                        :label="__('Visibilitat')"
+                        wire:model.live="newItemQuantityUnit"
+                        :label="__('Unitat')"
                     >
-                        <option value="{{ \App\ShoppingListItemVisibility::Public->value }}">{{ __('Públic del grup') }}</option>
-                        <option value="{{ \App\ShoppingListItemVisibility::Private->value }}">{{ __('Privat') }}</option>
+                        @foreach (\App\ShoppingListItemQuantityUnit::cases() as $quantityUnit)
+                            <option value="{{ $quantityUnit->value }}">{{ __($quantityUnit->label()) }} ({{ $quantityUnit->value }})</option>
+                        @endforeach
                     </flux:select>
-                @endif
+
+                    @if ($editingItemId === null)
+                        <flux:select
+                            wire:model="newItemVisibility"
+                            :label="__('Visibilitat')"
+                        >
+                            <option value="{{ \App\ShoppingListItemVisibility::Public->value }}">{{ __('Públic del grup') }}</option>
+                            <option value="{{ \App\ShoppingListItemVisibility::Private->value }}">{{ __('Privat') }}</option>
+                        </flux:select>
+                    @endif
+                </div>
             </div>
 
             <div class="flex justify-end gap-2">

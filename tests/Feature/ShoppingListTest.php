@@ -4,6 +4,7 @@ use App\Models\Shop;
 use App\Models\ShoppingListItem;
 use App\Models\User;
 use App\Models\UserGroup;
+use App\ShoppingListItemQuantityUnit;
 use App\ShoppingListItemVisibility;
 use Illuminate\Support\Facades\Gate;
 use Livewire\Livewire;
@@ -196,7 +197,7 @@ test('shopping list header emphasizes pending products and pending shops', funct
         ->assertDontSee('Botigues totals');
 });
 
-test('shopping list hides purchased items by default and can reveal them on demand', function () {
+test('shopping list surfaces purchased items as repurchase suggestions before revealing them in the list', function () {
     $user = User::factory()->create();
     $shop = Shop::factory()->for($user)->create([
         'name' => 'Mercat central',
@@ -221,15 +222,42 @@ test('shopping list hides purchased items by default and can reveal them on dema
         ->assertSuccessful()
         ->assertSee('Mostra comprats')
         ->assertSee('Pasta')
-        ->assertDontSee('Tomàquet');
+        ->assertSee('Torna a afegir')
+        ->assertSee('Tomàquet');
 
     Livewire::test('pages::shopping-list')
         ->assertSee('Pasta')
-        ->assertDontSee('Tomàquet')
+        ->assertSee('Tomàquet')
         ->call('togglePurchasedVisibility')
         ->assertSee('Amaga comprats')
         ->assertSee('Pasta')
         ->assertSee('Tomàquet');
+});
+
+test('shopping list shows pending items before purchased ones when purchased items are visible', function () {
+    $user = User::factory()->create();
+    $shop = Shop::factory()->for($user)->create([
+        'name' => 'Mercat central',
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($user)->create([
+        'name' => 'Comprat primer',
+        'purchased' => true,
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($user)->create([
+        'name' => 'Pendent segon',
+        'purchased' => false,
+        'position' => 2,
+    ]);
+
+    $this->actingAs($user);
+
+    Livewire::test('pages::shopping-list')
+        ->call('togglePurchasedVisibility')
+        ->assertSeeInOrder(['Pendent segon', 'Comprat primer']);
 });
 
 test('shopping list keeps shops visible but muted when all visible items are purchased', function () {
@@ -254,7 +282,8 @@ test('shopping list keeps shops visible but muted when all visible items are pur
         ->assertSee('data-test="shop-muted"', false)
         ->assertSee('data-test="shop-empty-pending"', false)
         ->assertSee('No hi ha productes pendents en aquesta botiga.')
-        ->assertDontSee('Tomàquet');
+        ->assertSee('Torna a afegir')
+        ->assertSee('Tomàquet');
 });
 
 test('user can create a shop shared with their group using the next position', function () {
@@ -414,10 +443,39 @@ test('user can add a private item with quantity and next position', function () 
     $item = $shop->shoppingListItems()->where('name', 'Pa')->first();
 
     expect($item)->not->toBeNull();
-    expect($item?->quantity)->toBe(3);
+    expect((float) $item?->quantity)->toBe(3.0);
+    expect($item?->quantity_unit)->toBe(ShoppingListItemQuantityUnit::Unit);
     expect($item?->position)->toBe(2);
     expect($item?->visibility)->toBe(ShoppingListItemVisibility::Private);
     expect($item?->user_id)->toBe($user->id);
+});
+
+test('user can add an item in kilograms with a decimal quantity', function () {
+    $group = UserGroup::factory()->create();
+    $user = User::factory()->inGroup($group)->create();
+    $shop = Shop::factory()->for($user)->create([
+        'user_group_id' => $group->id,
+        'position' => 1,
+    ]);
+
+    $this->actingAs($user);
+
+    $response = Livewire::test('pages::shopping-list')
+        ->call('startAddingItem', $shop->id)
+        ->set('newItemName', 'Tomàquet de penjar')
+        ->set('newItemQuantityUnit', ShoppingListItemQuantityUnit::Kilogram->value)
+        ->set('newItemQuantity', '1.25')
+        ->set('newItemVisibility', ShoppingListItemVisibility::Public->value)
+        ->call('addItem');
+
+    $response->assertHasNoErrors();
+
+    $item = $shop->shoppingListItems()->where('name', 'Tomàquet de penjar')->first();
+
+    expect($item)->not->toBeNull();
+    expect((float) $item?->quantity)->toBe(1.25);
+    expect($item?->quantity_unit)->toBe(ShoppingListItemQuantityUnit::Kilogram);
+    expect($item?->formattedQuantity())->toBe('1,25 kg');
 });
 
 test('new item modal uses the selected shop header color', function () {
@@ -577,7 +635,8 @@ test('group member can edit a public item name and quantity from the modal', fun
         ->assertSet('editingItemId', $item->id)
         ->assertSet('addingItemShopId', $shop->id)
         ->assertSet('newItemName', $item->name)
-        ->assertSet('newItemQuantity', 1)
+        ->assertSet('newItemQuantity', '1')
+        ->assertSet('newItemQuantityUnit', ShoppingListItemQuantityUnit::Unit->value)
         ->set('newItemName', 'Farina integral')
         ->set('newItemQuantity', 5)
         ->call('saveItem');
@@ -585,7 +644,39 @@ test('group member can edit a public item name and quantity from the modal', fun
     $response->assertHasNoErrors();
 
     expect($item->refresh()->name)->toBe('Farina integral');
-    expect($item->refresh()->quantity)->toBe(5);
+    expect((float) $item->refresh()->quantity)->toBe(5.0);
+});
+
+test('group member can edit a public item to use kilograms from the modal', function () {
+    $group = UserGroup::factory()->create();
+    $owner = User::factory()->inGroup($group)->create();
+    $user = User::factory()->inGroup($group)->create();
+    $shop = Shop::factory()->for($owner)->create([
+        'user_group_id' => $group->id,
+        'position' => 1,
+    ]);
+
+    $item = ShoppingListItem::factory()->for($shop)->for($owner)->create([
+        'name' => 'Raïm',
+        'quantity' => 1,
+        'visibility' => ShoppingListItemVisibility::Public,
+        'position' => 1,
+    ]);
+
+    $this->actingAs($user);
+
+    $response = Livewire::test('pages::shopping-list')
+        ->call('startEditingItem', $item->id)
+        ->assertSet('newItemQuantity', '1')
+        ->assertSet('newItemQuantityUnit', ShoppingListItemQuantityUnit::Unit->value)
+        ->set('newItemQuantityUnit', ShoppingListItemQuantityUnit::Kilogram->value)
+        ->set('newItemQuantity', '0.75')
+        ->call('saveItem');
+
+    $response->assertHasNoErrors();
+
+    expect((float) $item->refresh()->quantity)->toBe(0.75);
+    expect($item->refresh()->quantity_unit)->toBe(ShoppingListItemQuantityUnit::Kilogram);
 });
 
 test('group member can toggle a public item as purchased', function () {
@@ -609,6 +700,137 @@ test('group member can toggle a public item as purchased', function () {
         ->call('togglePurchased', $item->id);
 
     expect($item->refresh()->purchased)->toBeTrue();
+    expect($item->refresh()->purchased_at)->not->toBeNull();
+
+    Livewire::test('pages::shopping-list')
+        ->call('togglePurchased', $item->id);
+
+    expect($item->refresh()->purchased)->toBeFalse();
+    expect($item->refresh()->purchased_at)->toBeNull();
+});
+
+test('shopping list shows repurchase suggestions for visible purchased items only', function () {
+    $group = UserGroup::factory()->create();
+    $user = User::factory()->inGroup($group)->create();
+    $groupMember = User::factory()->inGroup($group)->create();
+
+    $shop = Shop::factory()->for($groupMember)->create([
+        'name' => 'Mercat central',
+        'user_group_id' => $group->id,
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($groupMember)->create([
+        'name' => 'Llet',
+        'quantity' => 2,
+        'visibility' => ShoppingListItemVisibility::Public,
+        'purchased' => true,
+        'purchased_at' => now()->subHour(),
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($groupMember)->asPrivate()->create([
+        'name' => 'Secret privat',
+        'quantity' => 1,
+        'purchased' => true,
+        'purchased_at' => now(),
+        'position' => 2,
+    ]);
+
+    $this->actingAs($user);
+
+    $this->get(route('dashboard'))
+        ->assertSuccessful()
+        ->assertSee('Torna a afegir')
+        ->assertSee('Llet')
+        ->assertDontSee('Secret privat');
+});
+
+test('group member can repurchase a visible public item and keep its data', function () {
+    $group = UserGroup::factory()->create();
+    $owner = User::factory()->inGroup($group)->create();
+    $user = User::factory()->inGroup($group)->create();
+    $shop = Shop::factory()->for($owner)->create([
+        'name' => 'Mercat central',
+        'user_group_id' => $group->id,
+        'position' => 1,
+    ]);
+
+    $originalItem = ShoppingListItem::factory()->for($shop)->for($owner)->create([
+        'name' => 'Farina',
+        'quantity' => 3,
+        'visibility' => ShoppingListItemVisibility::Public,
+        'purchased' => true,
+        'purchased_at' => now()->subHour(),
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($owner)->create([
+        'name' => 'Pa',
+        'quantity' => 1,
+        'visibility' => ShoppingListItemVisibility::Public,
+        'purchased' => false,
+        'position' => 2,
+    ]);
+
+    $this->actingAs($user);
+
+    Livewire::test('pages::shopping-list')
+        ->call('repurchaseItem', $originalItem->id)
+        ->assertHasNoErrors();
+
+    $repurchasedItem = $shop->shoppingListItems()
+        ->where('name', 'Farina')
+        ->where('user_id', $user->id)
+        ->latest('id')
+        ->first();
+
+    expect($repurchasedItem)->not->toBeNull();
+    expect((float) $repurchasedItem?->quantity)->toBe(3.0);
+    expect($repurchasedItem?->visibility)->toBe(ShoppingListItemVisibility::Public);
+    expect($repurchasedItem?->purchased)->toBeFalse();
+    expect($repurchasedItem?->purchased_at)->toBeNull();
+    expect($repurchasedItem?->position)->toBe(3);
+});
+
+test('shopping list shows weighted quantities with kilograms', function () {
+    $user = User::factory()->create();
+    $shop = Shop::factory()->for($user)->create([
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($user)->asWeighted()->create([
+        'name' => 'Taronges',
+        'quantity' => 1.25,
+        'position' => 1,
+    ]);
+
+    $this->actingAs($user);
+
+    $this->get(route('dashboard'))
+        ->assertSuccessful()
+        ->assertSee('1,25 kg')
+        ->assertSee('Taronges');
+});
+
+test('shopping list shows selected units for decimal quantities', function () {
+    $user = User::factory()->create();
+    $shop = Shop::factory()->for($user)->create([
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($user)->withQuantityUnit(ShoppingListItemQuantityUnit::Centiliter)->create([
+        'name' => 'Brou',
+        'quantity' => 33.5,
+        'position' => 1,
+    ]);
+
+    $this->actingAs($user);
+
+    $this->get(route('dashboard'))
+        ->assertSuccessful()
+        ->assertSee('33,5 cl')
+        ->assertSee('Brou');
 });
 
 test('user cannot modify another users shops or private items', function () {

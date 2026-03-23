@@ -95,7 +95,14 @@ new #[Title('Llistat complet')] class extends Component
                 ->values();
         }
 
-        return $items;
+        return $items
+            ->sortBy(fn (ShoppingListItem $item): string => sprintf(
+                '%d|%010d|%010d',
+                $item->purchased ? 1 : 0,
+                $item->shop->position,
+                $item->position,
+            ), SORT_NATURAL)
+            ->values();
     }
 
     /**
@@ -106,7 +113,8 @@ new #[Title('Llistat complet')] class extends Component
     {
         return $this->items
             ->sortBy(fn (ShoppingListItem $item): string => sprintf(
-                '%s|%s|%010d',
+                '%d|%s|%s|%010d',
+                $item->purchased ? 1 : 0,
                 Str::lower($item->name),
                 Str::lower($item->shop->name),
                 $item->position,
@@ -219,9 +227,7 @@ new #[Title('Llistat complet')] class extends Component
 
         $this->authorize('update', $item);
 
-        $item->update([
-            'purchased' => ! $item->purchased,
-        ]);
+        $item->updatePurchaseState(! $item->purchased);
     }
 
     /**
@@ -511,7 +517,7 @@ new #[Title('Llistat complet')] class extends Component
                             <div class="min-w-0 flex-1">
                                 <div class="flex items-center gap-2">
                                     <span class="shrink-0 text-sm font-semibold text-zinc-500 dark:text-zinc-400">
-                                        {{ $item->quantity }}
+                                        {{ $item->formattedQuantity() }}
                                     </span>
 
                                     <p @class([

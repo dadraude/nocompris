@@ -4,6 +4,7 @@ use App\Models\Shop;
 use App\Models\ShoppingListItem;
 use App\Models\User;
 use App\Models\UserGroup;
+use App\ShoppingListItemQuantityUnit;
 use App\ShoppingListItemVisibility;
 use Livewire\Livewire;
 
@@ -77,6 +78,48 @@ test('full shopping list shows visible items with quantities and shop badges', f
         ->assertSee('Mostra comprats')
         ->assertDontSee('Ja comprat')
         ->assertDontSee('Secret privat');
+});
+
+test('full shopping list formats weighted quantities with kilograms', function () {
+    $user = User::factory()->create();
+    $shop = Shop::factory()->for($user)->create([
+        'name' => 'Mercat',
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($user)->asWeighted()->create([
+        'name' => 'Pebrots',
+        'quantity' => 0.75,
+        'position' => 1,
+    ]);
+
+    $this->actingAs($user);
+
+    $this->get(route('shopping-list.full'))
+        ->assertSuccessful()
+        ->assertSee('0,75 kg')
+        ->assertSee('Pebrots');
+});
+
+test('full shopping list formats decimal quantities with their selected unit', function () {
+    $user = User::factory()->create();
+    $shop = Shop::factory()->for($user)->create([
+        'name' => 'Mercat',
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($user)->withQuantityUnit(ShoppingListItemQuantityUnit::Centiliter)->create([
+        'name' => 'Caldo',
+        'quantity' => 50.5,
+        'position' => 1,
+    ]);
+
+    $this->actingAs($user);
+
+    $this->get(route('shopping-list.full'))
+        ->assertSuccessful()
+        ->assertSee('50,5 cl')
+        ->assertSee('Caldo');
 });
 
 test('full shopping list uses a flat list ordered by shop position', function () {
@@ -160,6 +203,7 @@ test('full shopping list can toggle items as purchased', function () {
         ->assertDontSee('Llet');
 
     expect($item->refresh()->purchased)->toBeTrue();
+    expect($item->refresh()->purchased_at)->not->toBeNull();
 });
 
 test('full shopping list offers shop filters for shops with visible items', function () {
@@ -263,6 +307,33 @@ test('full shopping list can toggle the pending-only filter on and off', functio
         ->assertSet('purchaseFilter', 'pending')
         ->assertSee('Pendent toggle')
         ->assertDontSee('Comprat toggle');
+});
+
+test('full shopping list shows pending items before purchased ones when purchased items are visible', function () {
+    $user = User::factory()->create();
+
+    $shop = Shop::factory()->for($user)->create([
+        'name' => 'Mercat',
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($user)->create([
+        'name' => 'Comprat primer',
+        'purchased' => true,
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($user)->create([
+        'name' => 'Pendent segon',
+        'purchased' => false,
+        'position' => 2,
+    ]);
+
+    $this->actingAs($user);
+
+    $this->get(route('shopping-list.full', ['purchase' => 'all']))
+        ->assertSuccessful()
+        ->assertSeeInOrder(['Pendent segon', 'Comprat primer']);
 });
 
 test('full shopping list can filter items by one or more shops', function () {
