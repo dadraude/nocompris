@@ -491,7 +491,7 @@ new #[Title('Llistat complet')] class extends Component
                             data-test="full-list-item"
                             x-data="{ purchased: @js($item->purchased) }"
                             @class([
-                                'flex items-center gap-3 rounded-xl border px-3 py-2.5',
+                                'flex items-start gap-3 rounded-xl border px-3 py-2.5',
                                 'border-emerald-200/80 bg-emerald-50/70 dark:border-emerald-900/70 dark:bg-emerald-950/20' => $item->purchased,
                                 'border-zinc-200/80 bg-zinc-50/70 dark:border-zinc-700/70 dark:bg-zinc-950/30' => ! $item->purchased,
                             ])
@@ -516,13 +516,13 @@ new #[Title('Llistat complet')] class extends Component
                             </span>
 
                             <div class="min-w-0 flex-1">
-                                <div class="flex items-center gap-2">
+                                <div class="flex items-start gap-2">
                                     <span class="shrink-0 text-sm font-semibold text-zinc-500 dark:text-zinc-400">
                                         {{ $item->formattedQuantity() }}
                                     </span>
 
                                     <p @class([
-                                        'min-w-0 truncate font-medium leading-tight',
+                                        'min-w-0 break-words whitespace-normal font-medium leading-tight',
                                         'text-zinc-400 line-through dark:text-zinc-500' => $item->purchased,
                                         'text-zinc-900 dark:text-zinc-50' => ! $item->purchased,
                                     ])>

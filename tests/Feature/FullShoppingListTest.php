@@ -80,6 +80,26 @@ test('full shopping list shows visible items with quantities and shop badges', f
         ->assertDontSee('Secret privat');
 });
 
+test('full shopping list item names can wrap onto multiple lines', function () {
+    $user = User::factory()->create();
+    $shop = Shop::factory()->for($user)->create([
+        'name' => 'Mercat',
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($user)->create([
+        'name' => 'Nom de producte especialment llarg per comprovar que no queda tallat',
+        'position' => 1,
+    ]);
+
+    $this->actingAs($user);
+
+    $this->get(route('shopping-list.full'))
+        ->assertSuccessful()
+        ->assertSee('break-words whitespace-normal font-medium leading-tight', false)
+        ->assertDontSee('truncate font-medium leading-tight', false);
+});
+
 test('full shopping list formats weighted quantities with kilograms', function () {
     $user = User::factory()->create();
     $shop = Shop::factory()->for($user)->create([

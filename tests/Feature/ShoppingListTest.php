@@ -129,6 +129,26 @@ test('shopping list renders compact layout hooks', function () {
         ->assertSee('aria-label="Edita la botiga"', false);
 });
 
+test('shopping list item names can wrap onto multiple lines', function () {
+    $user = User::factory()->create();
+    $shop = Shop::factory()->for($user)->create([
+        'name' => 'Mercat central',
+        'position' => 1,
+    ]);
+
+    ShoppingListItem::factory()->for($shop)->for($user)->create([
+        'name' => 'Nom de producte especialment llarg per comprovar que no queda tallat',
+        'position' => 1,
+    ]);
+
+    $this->actingAs($user);
+
+    $this->get(route('dashboard'))
+        ->assertSuccessful()
+        ->assertSee('break-words whitespace-normal font-medium leading-tight', false)
+        ->assertDontSee('truncate font-medium leading-tight', false);
+});
+
 test('shop header shows the visible pending to total items ratio', function () {
     $user = User::factory()->create();
     $shop = Shop::factory()->for($user)->create([

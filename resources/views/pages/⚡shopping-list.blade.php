@@ -1047,7 +1047,7 @@ new #[Title('Llista de la compra')] class extends Component
                                                     :class="purchased
                                                         ? 'border-emerald-200/80 bg-emerald-50/70 dark:border-emerald-900/70 dark:bg-emerald-950/20'
                                                         : 'border-zinc-200/80 bg-white/75 dark:border-zinc-700/70 dark:bg-zinc-950/25'"
-                                                    class="app-shop-item flex gap-2.5"
+                                                    class="app-shop-item flex items-start gap-2.5"
                                                 >
                                                     @can('reorder', $item)
                                                         <button
@@ -1071,12 +1071,12 @@ new #[Title('Llista de la compra')] class extends Component
                                                         >
                                                     </label>
 
-                                                    <div class="flex min-w-0 flex-1 items-center gap-2.5">
+                                                    <div class="flex min-w-0 flex-1 items-start gap-2.5">
                                                         @can('update', $item)
                                                             <flux:modal.trigger name="item-form" class="min-w-0 flex-1">
                                                                 <button
                                                                     type="button"
-                                                                    class="flex min-w-0 flex-1 items-center gap-2.5 rounded-lg px-1 py-1 text-left transition hover:bg-zinc-100/75 dark:hover:bg-zinc-800/50"
+                                                                    class="flex min-w-0 flex-1 items-start gap-2.5 rounded-lg px-1 py-1 text-left transition hover:bg-zinc-100/75 dark:hover:bg-zinc-800/50"
                                                                     data-test="item-edit-button"
                                                                     aria-label="{{ __('Edita el producte :item', ['item' => $item->name]) }}"
                                                                     wire:click="startEditingItem({{ $item->id }})"
@@ -1092,14 +1092,14 @@ new #[Title('Llista de la compra')] class extends Component
                                                                         :class="purchased
                                                                             ? 'text-zinc-400 line-through dark:text-zinc-500'
                                                                             : 'text-zinc-900 dark:text-zinc-50'"
-                                                                        class="min-w-0 flex-1 truncate font-medium leading-tight"
+                                                                        class="min-w-0 flex-1 break-words whitespace-normal font-medium leading-tight"
                                                                     >
                                                                         {{ $item->name }}
                                                                     </p>
                                                                 </button>
                                                             </flux:modal.trigger>
                                                         @else
-                                                            <div class="flex min-w-0 flex-1 items-center gap-2.5">
+                                                            <div class="flex min-w-0 flex-1 items-start gap-2.5">
                                                                 <span
                                                                     data-test="item-quantity-text"
                                                                     class="shrink-0 text-sm font-semibold text-zinc-500 dark:text-zinc-400"
@@ -1111,7 +1111,7 @@ new #[Title('Llista de la compra')] class extends Component
                                                                     :class="purchased
                                                                         ? 'text-zinc-400 line-through dark:text-zinc-500'
                                                                         : 'text-zinc-900 dark:text-zinc-50'"
-                                                                    class="min-w-0 flex-1 truncate font-medium leading-tight"
+                                                                    class="min-w-0 flex-1 break-words whitespace-normal font-medium leading-tight"
                                                                 >
                                                                     {{ $item->name }}
                                                                 </p>
